@@ -1,94 +1,269 @@
-# Obsidian Sample Plugin
+# Second Brain Integration Plugin for Obsidian
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+A comprehensive Obsidian plugin that transforms your vault into a unified "second brain" by automatically ingesting and organizing transactions, calendar events, and tasks with AI-powered parsing and graph intelligence.
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+## Features
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open Sample Modal" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+### 🏗️ Core Features
 
-## First time developing plugins?
+- **Vault Initialization**: Automatically creates organized folder structure (`/notes`, `/transactions`, `/events`, `/tasks`, `/templates`)
+- **API Authentication**: Secure OAuth flows for Plaid and Google Calendar integration
+- **Data Synchronization**: Background or on-demand sync of transactions, events, and tasks
+- **ML-Powered Parsing**: Configurable LLM integration (OpenAI, Anthropic, or custom endpoints) to transform raw data into structured markdown
+- **Dataview Compatibility**: All notes use frontmatter fields readable by Dataview for powerful queries
 
-Quick starting guide for new plugin devs:
+### 🔄 Data Sources
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+- **Plaid Integration**: Automatic transaction import from connected bank accounts
+- **Google Calendar**: Sync calendar events with full OAuth support
+- **Task Management**: Integration with Todoist or Obsidian Tasks plugin
+- **JSON Import**: Manual import of structured data via Command Palette
 
-## Releasing new releases
+### 🧠 Intelligence Features
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+- **Graph Suggestions**: AI-powered backlink and tag suggestions with user feedback
+- **Graph Export**: Export vault structure in JSON, CSV, or PyTorch Geometric formats
+- **Usage Analytics**: Track plugin usage and suggestion effectiveness
+- **Bulk Import**: Support for historical data import with performance tracking
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+### 🎨 UI/UX Integration
 
-## Adding your plugin to the community plugin list
+- **Command Palette**: All major functions accessible via commands
+- **Sidebar Panel**: Recent items browser with search and filtering
+- **Inline Actions**: `Summarize`, `Redact`, `Suggest Links` buttons within notes
+- **Frontmatter Watchers**: Automatic sync of changes back to source systems
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+## Installation
 
-## How to use
+### Prerequisites
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+1. **Obsidian** (minimum version 0.15.0)
+2. **Required Plugins** (will be checked during initialization):
+   - Dataview (essential)
+   - Tasks (essential)
+   - Calendar (recommended)
+   - Templater (recommended)
 
-## Manually installing the plugin
+### Install from Source
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+1. Clone this repository to your Obsidian plugins folder:
+   ```bash
+   cd /path/to/your/vault/.obsidian/plugins/
+   git clone https://github.com/your-username/obsidian-second-brain-integration.git
+   cd obsidian-second-brain-integration
+   ```
 
-## Improve code quality with eslint (optional)
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- To use eslint with this project, make sure to install eslint from terminal:
-  - `npm install -g eslint`
-- To use eslint to analyze this project use this command:
-  - `eslint main.ts`
-  - eslint will then create a report with suggestions for code improvement by file and line number.
-- If your source code is in a folder, such as `src`, you can use eslint with this command to analyze all files in that folder:
-  - `eslint .\src\`
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-## Funding URL
+3. Build the plugin:
+   ```bash
+   npm run build
+   ```
 
-You can include funding URLs where people who use your plugin can financially support it.
+4. Enable the plugin in Obsidian Settings → Community Plugins
 
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
+## Configuration
 
+### 1. LLM Configuration
+
+Configure your preferred LLM provider in plugin settings:
+
+- **OpenAI**: Requires API key
+- **Anthropic**: Requires API key  
+- **Custom Endpoint**: Requires endpoint URL and API key
+
+### 2. Plaid Setup (Financial Transactions)
+
+1. Create a Plaid developer account at [plaid.com/developers](https://plaid.com/developers)
+2. Get your Client ID and Secret Key
+3. Configure in plugin settings:
+   - Client ID
+   - Secret Key
+   - Environment (sandbox/development/production)
+4. Use the OAuth flow to connect your bank accounts
+
+### 3. Google Calendar Setup
+
+**Option A: API Key (Read-only)**
+1. Create a Google Cloud project
+2. Enable the Calendar API
+3. Create an API key
+4. Configure in plugin settings
+
+**Option B: OAuth (Full access)**
+1. Create OAuth 2.0 credentials in Google Cloud Console
+2. Configure redirect URI
+3. Paste credentials JSON in plugin settings
+4. Complete OAuth flow
+
+### 4. Tasks Integration
+
+- **Obsidian Tasks Plugin**: Automatically detected if installed
+- **Todoist**: Requires API token configuration
+
+## Usage
+
+### Initial Setup
+
+1. **Initialize Vault**: Run `Second Brain: Initialize Vault Structure` from Command Palette
+2. **Configure APIs**: Set up your API keys in plugin settings
+3. **Test Connections**: Run `Second Brain: Test API Connections` to verify setup
+
+### Daily Workflow
+
+1. **Sync Data**: 
+   - `Second Brain: Sync Transactions from Plaid`
+   - `Second Brain: Sync Calendar Events`
+   - Or enable automatic background sync
+
+2. **Review Generated Notes**: Check the organized folders for new notes with AI-generated tags and suggestions
+
+3. **Manual Import**: Use `Second Brain: Import JSON Data` for one-off data imports
+
+4. **Export Analysis**: Use `Second Brain: Export Graph Data` for external analysis
+
+### Templates
+
+The plugin creates and uses these templates:
+
+- **Transaction Template**: Financial transaction with merchant, amount, category
+- **Event Template**: Calendar event with attendees, location, time
+- **Task Template**: Task with priority, due date, project
+- **Note Template**: General note with tags and relationships
+
+### Dataview Queries
+
+Example queries you can use with the generated data:
+
+```dataview
+TABLE amount, merchant, category
+FROM "transactions"
+WHERE date >= date(today) - dur(30 days)
+SORT date DESC
+```
+
+```dataview
+CALENDAR date
+FROM "events"
+WHERE date >= date(today)
+```
+
+```dataview
+TASK
+FROM "tasks"
+WHERE !completed
+SORT priority DESC, due_date ASC
+```
+
+## Graph Export Formats
+
+### JSON Format
+Standard graph structure with nodes and edges:
 ```json
 {
-    "fundingUrl": "https://buymeacoffee.com"
+  "nodes": [...],
+  "edges": [...],
+  "metadata": {...}
 }
 ```
 
-If you have multiple URLs, you can also do:
-
+### PyTorch Geometric Format
+Optimized for machine learning workflows:
 ```json
 {
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
+  "x": [...],
+  "edge_index": [...],
+  "metadata": {...}
 }
 ```
 
-## API Documentation
+### CSV Format
+Simple tabular format for spreadsheet analysis.
 
-See https://github.com/obsidianmd/obsidian-api
+## Development
+
+### Project Structure
+
+```
+├── main.ts                 # Main plugin file
+├── manifest.json          # Plugin manifest
+├── src/
+│   ├── types.ts           # TypeScript interfaces
+│   ├── services/          # External API services
+│   │   ├── llm-service.ts
+│   │   ├── plaid-service.ts
+│   │   └── calendar-service.ts
+│   ├── vault/             # Vault management
+│   │   └── initializer.ts
+│   ├── utils/             # Utilities
+│   │   └── templates.ts
+│   └── ui/                # UI components
+├── templates/             # Note templates
+└── README.md
+```
+
+### Build Commands
+
+- `npm run dev` - Development build with watch mode
+- `npm run build` - Production build
+- `npm run version` - Bump version and update manifest
+
+### Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## Privacy & Security
+
+- **API Keys**: Stored locally in Obsidian settings, never transmitted to third parties
+- **Data Processing**: LLM processing can be disabled or configured to use local endpoints
+- **Sync Data**: All synced data remains in your local Obsidian vault
+- **Analytics**: Usage analytics are anonymized and optional
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Plugin won't load**: Check Obsidian version compatibility (minimum 0.15.0)
+2. **API connection failed**: Verify API keys and network connectivity
+3. **Sync not working**: Check API rate limits and authentication status
+4. **Missing dependencies**: Install required plugins (Dataview, Tasks)
+
+### Debug Mode
+
+Enable debug logging in plugin settings to troubleshoot issues.
+
+### Support
+
+- **Issues**: Report bugs on GitHub Issues
+- **Discussions**: Join community discussions
+- **Documentation**: Check the wiki for detailed guides
+
+## Roadmap
+
+- [ ] **Enhanced AI Features**: More sophisticated graph analysis and suggestions
+- [ ] **Additional Integrations**: Support for more financial institutions and calendar providers
+- [ ] **Mobile Support**: Optimized mobile experience
+- [ ] **Collaboration Features**: Shared vault synchronization
+- [ ] **Advanced Analytics**: Built-in dashboard for personal insights
+
+## License
+
+MIT License - see LICENSE file for details.
+
+## Acknowledgments
+
+- Obsidian team for the excellent plugin API
+- Plaid for financial data integration
+- Google for Calendar API
+- OpenAI and Anthropic for LLM capabilities
+
+---
+
+**Note**: This plugin is in active development. Please report any issues or feature requests on GitHub.
