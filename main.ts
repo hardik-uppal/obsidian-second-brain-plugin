@@ -748,7 +748,7 @@ class SecondBrainSettingTab extends PluginSettingTab {
 				.setDisabled(!this.plugin.settings.plaidClientId || !this.plugin.settings.plaidSecret)
 				.onClick(async () => {
 					// Initialize Plaid Link flow
-					await this.initializePlaidLink();
+					new Notice('Plaid Link integration would be initialized here. This requires Plaid Link SDK setup.');
 				}));
 	}
 }

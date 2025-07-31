@@ -10,7 +10,6 @@ export interface PluginSettings {
 	// Plaid Configuration
 	plaidClientId: string;
 	plaidSecret: string;
-	plaidAccessId: string; // Required for API calls
 	plaidEnvironment: 'sandbox' | 'development' | 'production';
 	plaidAccessToken?: string;
 
@@ -50,8 +49,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	
 	plaidClientId: '',
 	plaidSecret: '',
-	plaidAccessId: '',
-	plaidEnvironment: 'sandbox',
+	plaidAccessToken: '',
+	plaidEnvironment: 'production',
 	
 	googleCalendarClientId: '',
 	googleCalendarClientSecret: '',
