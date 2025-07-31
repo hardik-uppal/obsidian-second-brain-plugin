@@ -10,13 +10,16 @@ export interface PluginSettings {
 	// Plaid Configuration
 	plaidClientId: string;
 	plaidSecret: string;
+	plaidAccessId: string; // Required for API calls
 	plaidEnvironment: 'sandbox' | 'development' | 'production';
 	plaidAccessToken?: string;
 
-	// Google Calendar Configuration
-	googleCalendarApiKey: string;
+	// Google Calendar Configuration (OAuth2 only)
+	googleCalendarClientId: string;
+	googleCalendarClientSecret: string;
+	googleCalendarRedirectUri: string;
 	googleCalendarId: string;
-	googleCalendarCredentials?: string; // JSON string of OAuth credentials
+	googleCalendarTokens?: string; // JSON string of access/refresh tokens
 
 	// Tasks Configuration
 	tasksPluginEnabled: boolean;
@@ -43,14 +46,17 @@ export interface PluginSettings {
 export const DEFAULT_SETTINGS: PluginSettings = {
 	llmProvider: 'openai',
 	llmApiKey: '',
-	llmModel: 'gpt-3.5-turbo',
+	llmModel: 'gpt-4o',
 	
 	plaidClientId: '',
 	plaidSecret: '',
+	plaidAccessId: '',
 	plaidEnvironment: 'sandbox',
 	
-	googleCalendarApiKey: '',
-	googleCalendarId: '',
+	googleCalendarClientId: '',
+	googleCalendarClientSecret: '',
+	googleCalendarRedirectUri: 'http://localhost:8080/callback',
+	googleCalendarId: 'primary',
 	
 	tasksPluginEnabled: true,
 	

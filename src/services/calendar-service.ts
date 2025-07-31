@@ -13,28 +13,33 @@ export class CalendarService {
 
 	private initializeClient(): void {
 		try {
-			if (this.settings.googleCalendarCredentials) {
-				const credentials = JSON.parse(this.settings.googleCalendarCredentials);
+			if (this.settings.googleCalendarClientId && this.settings.googleCalendarClientSecret) {
 				const auth = new google.auth.OAuth2(
-					credentials.client_id,
-					credentials.client_secret,
-					credentials.redirect_uri
+					this.settings.googleCalendarClientId,
+					this.settings.googleCalendarClientSecret,
+					this.settings.googleCalendarRedirectUri
 				);
 
-				if (credentials.refresh_token) {
-					auth.setCredentials({
-						refresh_token: credentials.refresh_token,
-						access_token: credentials.access_token
-					});
+				// Set up token refresh handling
+				auth.on('tokens', (tokens) => {
+					if (tokens.refresh_token) {
+						// Update stored tokens
+						const currentTokens = this.settings.googleCalendarTokens ? 
+							JSON.parse(this.settings.googleCalendarTokens) : {};
+						const updatedTokens = { ...currentTokens, ...tokens };
+						this.settings.googleCalendarTokens = JSON.stringify(updatedTokens);
+						// Note: In a real implementation, you'd want to save settings here
+						console.log('OAuth2 tokens refreshed');
+					}
+				});
+
+				// Load existing tokens if available
+				if (this.settings.googleCalendarTokens) {
+					const tokens = JSON.parse(this.settings.googleCalendarTokens);
+					auth.setCredentials(tokens);
 				}
 
 				this.calendar = google.calendar({ version: 'v3', auth });
-			} else if (this.settings.googleCalendarApiKey) {
-				// Use API key for read-only access
-				this.calendar = google.calendar({
-					version: 'v3',
-					auth: this.settings.googleCalendarApiKey
-				});
 			}
 		} catch (error) {
 			console.error('Failed to initialize Google Calendar client:', error);
@@ -148,15 +153,14 @@ export class CalendarService {
 	// OAuth flow helpers
 	generateAuthUrl(): string {
 		try {
-			if (!this.settings.googleCalendarCredentials) {
-				throw new Error('Google Calendar credentials not configured');
+			if (!this.settings.googleCalendarClientId || !this.settings.googleCalendarClientSecret) {
+				throw new Error('Google Calendar OAuth2 credentials not configured');
 			}
 
-			const credentials = JSON.parse(this.settings.googleCalendarCredentials);
 			const auth = new google.auth.OAuth2(
-				credentials.client_id,
-				credentials.client_secret,
-				credentials.redirect_uri
+				this.settings.googleCalendarClientId,
+				this.settings.googleCalendarClientSecret,
+				this.settings.googleCalendarRedirectUri
 			);
 
 			const scopes = [
@@ -176,15 +180,14 @@ export class CalendarService {
 
 	async exchangeCodeForTokens(code: string): Promise<any> {
 		try {
-			if (!this.settings.googleCalendarCredentials) {
-				throw new Error('Google Calendar credentials not configured');
+			if (!this.settings.googleCalendarClientId || !this.settings.googleCalendarClientSecret) {
+				throw new Error('Google Calendar OAuth2 credentials not configured');
 			}
 
-			const credentials = JSON.parse(this.settings.googleCalendarCredentials);
 			const auth = new google.auth.OAuth2(
-				credentials.client_id,
-				credentials.client_secret,
-				credentials.redirect_uri
+				this.settings.googleCalendarClientId,
+				this.settings.googleCalendarClientSecret,
+				this.settings.googleCalendarRedirectUri
 			);
 
 			const { tokens } = await auth.getToken(code);
@@ -220,7 +223,8 @@ export class CalendarService {
 
 	isConfigured(): boolean {
 		return !!(
-			(this.settings.googleCalendarApiKey || this.settings.googleCalendarCredentials) &&
+			this.settings.googleCalendarClientId &&
+			this.settings.googleCalendarClientSecret &&
 			this.settings.googleCalendarId
 		);
 	}
@@ -228,8 +232,11 @@ export class CalendarService {
 	getConfigurationStatus(): { configured: boolean; missing: string[] } {
 		const missing: string[] = [];
 		
-		if (!this.settings.googleCalendarApiKey && !this.settings.googleCalendarCredentials) {
-			missing.push('API Key or OAuth Credentials');
+		if (!this.settings.googleCalendarClientId) {
+			missing.push('Client ID');
+		}
+		if (!this.settings.googleCalendarClientSecret) {
+			missing.push('Client Secret');
 		}
 		if (!this.settings.googleCalendarId) {
 			missing.push('Calendar ID');
@@ -238,6 +245,21 @@ export class CalendarService {
 		return {
 			configured: missing.length === 0,
 			missing
+		};
+	}
+
+	// Check if OAuth2 tokens are available
+	hasValidTokens(): boolean {
+		return !!(this.settings.googleCalendarTokens);
+	}
+
+	// Get connection status including token availability
+	getConnectionStatus(): { configured: boolean; authenticated: boolean; missing: string[] } {
+		const configStatus = this.getConfigurationStatus();
+		return {
+			configured: configStatus.configured,
+			authenticated: this.hasValidTokens(),
+			missing: configStatus.missing
 		};
 	}
 

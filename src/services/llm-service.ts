@@ -311,6 +311,110 @@ Return only valid JSON, no additional text.
 `;
 	}
 
+	async chat(message: string): Promise<string> {
+		try {
+			// For chat, we call the LLM directly without expecting JSON
+			switch (this.settings.llmProvider) {
+				case 'openai':
+					return await this.callOpenAIChat(message);
+				case 'anthropic':
+					return await this.callAnthropicChat(message);
+				case 'custom':
+					return await this.callCustomChat(message);
+				default:
+					throw new Error(`Unsupported LLM provider: ${this.settings.llmProvider}`);
+			}
+		} catch (error) {
+			throw new Error(`Chat failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+		}
+	}
+
+	private async callOpenAIChat(message: string): Promise<string> {
+		const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+			model: this.settings.llmModel,
+			messages: [
+				{
+					role: 'system',
+					content: 'You are a helpful AI assistant integrated into a personal knowledge management system built with Obsidian. The user is working with their "Second Brain" - a system that captures transactions, calendar events, tasks, and notes. Provide helpful, conversational responses.'
+				},
+				{
+					role: 'user',
+					content: message
+				}
+			],
+			temperature: 0.7,
+			max_tokens: 1000
+		}, {
+			headers: {
+				'Authorization': `Bearer ${this.settings.llmApiKey}`,
+				'Content-Type': 'application/json'
+			}
+		});
+
+		return response.data.choices[0].message.content;
+	}
+
+	private async callAnthropicChat(message: string): Promise<string> {
+		const response = await axios.post('https://api.anthropic.com/v1/messages', {
+			model: this.settings.llmModel,
+			max_tokens: 1000,
+			messages: [
+				{
+					role: 'user',
+					content: `You are a helpful AI assistant integrated into a personal knowledge management system built with Obsidian. The user is working with their "Second Brain" - a system that captures transactions, calendar events, tasks, and notes. Provide helpful, conversational responses.
+
+User message: ${message}`
+				}
+			]
+		}, {
+			headers: {
+				'x-api-key': this.settings.llmApiKey,
+				'Content-Type': 'application/json',
+				'anthropic-version': '2023-06-01'
+			}
+		});
+
+		return response.data.content[0].text;
+	}
+
+	private async callCustomChat(message: string): Promise<string> {
+		if (!this.settings.llmEndpoint) {
+			throw new Error('Custom LLM endpoint not configured');
+		}
+
+		const response = await axios.post(this.settings.llmEndpoint, {
+			prompt: this.buildChatPrompt(message),
+			message: message,
+			type: 'chat',
+			model: this.settings.llmModel
+		}, {
+			headers: {
+				'Authorization': `Bearer ${this.settings.llmApiKey}`,
+				'Content-Type': 'application/json'
+			}
+		});
+
+		return response.data.response || response.data.content || response.data;
+	}
+
+	private buildChatPrompt(message: string): string {
+		return `
+You are a helpful AI assistant integrated into a personal knowledge management system built with Obsidian. 
+The user is working with their "Second Brain" - a system that captures transactions, calendar events, tasks, and notes.
+
+User message: ${message}
+
+Please provide a helpful, conversational response. You can:
+- Answer questions about their data or system
+- Provide suggestions for organizing information
+- Help with productivity and knowledge management
+- Offer general assistance
+
+Keep your response natural and conversational. If the user asks about specific data, acknowledge that you would need access to their vault contents to provide specific details.
+
+Response:`;
+	}
+
 	updateSettings(newSettings: PluginSettings): void {
 		this.settings = newSettings;
 	}

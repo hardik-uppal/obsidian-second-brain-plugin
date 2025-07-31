@@ -29,9 +29,11 @@ A comprehensive Obsidian plugin that transforms your vault into a unified "secon
 ### 🎨 UI/UX Integration
 
 - **Command Palette**: All major functions accessible via commands
+- **Chat Interface**: Interactive AI assistant for vault queries and knowledge management
 - **Sidebar Panel**: Recent items browser with search and filtering
 - **Inline Actions**: `Summarize`, `Redact`, `Suggest Links` buttons within notes
 - **Frontmatter Watchers**: Automatic sync of changes back to source systems
+- **Ribbon Icons**: Quick access to main features and chat interface
 
 ## Installation
 
@@ -49,8 +51,8 @@ A comprehensive Obsidian plugin that transforms your vault into a unified "secon
 1. Clone this repository to your Obsidian plugins folder:
    ```bash
    cd /path/to/your/vault/.obsidian/plugins/
-   git clone https://github.com/your-username/obsidian-second-brain-integration.git
-   cd obsidian-second-brain-integration
+   git clone https://github.com/hardik-uppal/obsidian-second-brain-plugin.git
+   cd obsidian-second-brain-plugin
    ```
 
 2. Install dependencies:
@@ -123,7 +125,9 @@ Configure your preferred LLM provider in plugin settings:
 
 3. **Manual Import**: Use `Second Brain: Import JSON Data` for one-off data imports
 
-4. **Export Analysis**: Use `Second Brain: Export Graph Data` for external analysis
+4. **Chat with Your Data**: Use `Second Brain: Open Second Brain Chat` or click the chat ribbon icon to interact with your knowledge base
+
+5. **Export Analysis**: Use `Second Brain: Export Graph Data` for external analysis
 
 ### Templates
 

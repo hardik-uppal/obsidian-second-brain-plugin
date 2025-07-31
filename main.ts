@@ -1,10 +1,11 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf } from 'obsidian';
 import { PluginSettings, DEFAULT_SETTINGS, PluginState } from './src/types';
 import { VaultInitializer } from './src/vault/initializer';
 import { LLMService } from './src/services/llm-service';
 import { PlaidService } from './src/services/plaid-service';
 import { CalendarService } from './src/services/calendar-service';
 import { TemplateEngine, TemplateDataProcessor } from './src/utils/templates';
+import { ChatView, CHAT_VIEW_TYPE } from './src/ui/ChatView';
 
 export default class SecondBrainPlugin extends Plugin {
 	settings: PluginSettings;
@@ -33,11 +34,20 @@ export default class SecondBrainPlugin extends Plugin {
 		// Initialize services
 		this.initializeServices();
 
-		// Add ribbon icon
+		// Register ChatView
+		this.registerView(CHAT_VIEW_TYPE, (leaf) => new ChatView(leaf, this));
+
+		// Add ribbon icon for main plugin
 		const ribbonIconEl = this.addRibbonIcon('brain', 'Second Brain Integration', (evt: MouseEvent) => {
 			new Notice('Second Brain Integration is active!');
 		});
 		ribbonIconEl.addClass('second-brain-ribbon-class');
+
+		// Add ribbon icon for chat
+		const chatRibbonIconEl = this.addRibbonIcon('message-circle', 'Open Second Brain Chat', (evt: MouseEvent) => {
+			this.activateChatView();
+		});
+		chatRibbonIconEl.addClass('second-brain-chat-ribbon-class');
 
 		// Add status bar item
 		const statusBarItemEl = this.addStatusBarItem();
@@ -121,6 +131,24 @@ export default class SecondBrainPlugin extends Plugin {
 			name: 'Test API Connections',
 			callback: async () => {
 				await this.testConnections();
+			}
+		});
+
+		// OAuth2 auth code exchange command
+		this.addCommand({
+			id: 'exchange-auth-code',
+			name: 'Exchange Google Calendar Auth Code',
+			callback: () => {
+				new AuthCodeModal(this.app, this).open();
+			}
+		});
+
+		// Open chat view command
+		this.addCommand({
+			id: 'open-chat',
+			name: 'Open Second Brain Chat',
+			callback: async () => {
+				await this.activateChatView();
 			}
 		});
 	}
@@ -421,6 +449,27 @@ export default class SecondBrainPlugin extends Plugin {
 		new Notice(results.join('\n'), 8000);
 	}
 
+	async activateChatView(): Promise<void> {
+		const { workspace } = this.app;
+
+		let leaf: WorkspaceLeaf | null = null;
+		const leaves = workspace.getLeavesOfType(CHAT_VIEW_TYPE);
+
+		if (leaves.length > 0) {
+			// A chat view already exists, focus it
+			leaf = leaves[0];
+		} else {
+			// Create a new chat view in the right sidebar
+			leaf = workspace.getRightLeaf(false);
+			await leaf?.setViewState({ type: CHAT_VIEW_TYPE, active: true });
+		}
+
+		// Reveal the leaf
+		if (leaf) {
+			workspace.revealLeaf(leaf);
+		}
+	}
+
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
@@ -478,6 +527,66 @@ class JsonImportModal extends Modal {
 		// This would process the imported JSON data
 		// For now, just show a success message
 		new Notice('JSON data imported successfully');
+	}
+}
+
+// Auth Code Exchange Modal
+class AuthCodeModal extends Modal {
+	plugin: SecondBrainPlugin;
+
+	constructor(app: App, plugin: SecondBrainPlugin) {
+		super(app);
+		this.plugin = plugin;
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.createEl('h2', { text: 'Exchange Google Calendar Auth Code' });
+
+		contentEl.createEl('p', { 
+			text: 'After completing authentication in your browser, paste the authorization code here:' 
+		});
+
+		const input = contentEl.createEl('input', {
+			type: 'text',
+			placeholder: 'Paste authorization code here...'
+		});
+		input.style.width = '100%';
+		input.style.marginBottom = '10px';
+
+		const buttonContainer = contentEl.createDiv();
+		
+		const exchangeButton = buttonContainer.createEl('button', { text: 'Exchange Code' });
+		exchangeButton.onclick = async () => {
+			const authCode = input.value.trim();
+			if (!authCode) {
+				new Notice('Please enter the authorization code');
+				return;
+			}
+
+			try {
+				new Notice('Exchanging authorization code...');
+				const tokens = await this.plugin.calendarService.exchangeCodeForTokens(authCode);
+				
+				// Save tokens to settings
+				this.plugin.settings.googleCalendarTokens = JSON.stringify(tokens);
+				await this.plugin.saveSettings();
+				
+				new Notice('Google Calendar connected successfully!');
+				this.close();
+			} catch (error) {
+				const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+				new Notice(`Failed to exchange auth code: ${errorMsg}`);
+			}
+		};
+
+		const cancelButton = buttonContainer.createEl('button', { text: 'Cancel' });
+		cancelButton.onclick = () => this.close();
+	}
+
+	onClose() {
+		const { contentEl } = this;
+		contentEl.empty();
 	}
 }
 
@@ -548,17 +657,39 @@ class SecondBrainSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		// Google Calendar Settings
-		containerEl.createEl('h3', { text: 'Google Calendar Configuration' });
+		// Google Calendar Settings (OAuth2)
+		containerEl.createEl('h3', { text: 'Google Calendar Configuration (OAuth2)' });
 
 		new Setting(containerEl)
-			.setName('Google Calendar API Key')
-			.setDesc('Your Google Calendar API key')
+			.setName('Client ID')
+			.setDesc('Your Google Calendar OAuth2 Client ID')
 			.addText(text => text
-				.setPlaceholder('Enter API key')
-				.setValue(this.plugin.settings.googleCalendarApiKey)
+				.setPlaceholder('Enter Client ID')
+				.setValue(this.plugin.settings.googleCalendarClientId)
 				.onChange(async (value) => {
-					this.plugin.settings.googleCalendarApiKey = value;
+					this.plugin.settings.googleCalendarClientId = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Client Secret')
+			.setDesc('Your Google Calendar OAuth2 Client Secret')
+			.addText(text => text
+				.setPlaceholder('Enter Client Secret')
+				.setValue(this.plugin.settings.googleCalendarClientSecret)
+				.onChange(async (value) => {
+					this.plugin.settings.googleCalendarClientSecret = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Redirect URI')
+			.setDesc('OAuth2 redirect URI (default: http://localhost:8080/callback)')
+			.addText(text => text
+				.setPlaceholder('http://localhost:8080/callback')
+				.setValue(this.plugin.settings.googleCalendarRedirectUri)
+				.onChange(async (value) => {
+					this.plugin.settings.googleCalendarRedirectUri = value;
 					await this.plugin.saveSettings();
 				}));
 
@@ -571,6 +702,53 @@ class SecondBrainSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.googleCalendarId = value;
 					await this.plugin.saveSettings();
+				}));
+
+		// OAuth2 Connection Status and Actions
+		const connectionStatus = this.plugin.calendarService.getConnectionStatus();
+		const statusText = connectionStatus.configured ? 
+			(connectionStatus.authenticated ? '✅ Connected' : '⚠️ Configured but not authenticated') :
+			'❌ Not configured';
+
+		new Setting(containerEl)
+			.setName('Connection Status')
+			.setDesc(statusText)
+			.addButton(button => button
+				.setButtonText('Connect to Google Calendar')
+				.setDisabled(!connectionStatus.configured)
+				.onClick(async () => {
+					try {
+						const authUrl = this.plugin.calendarService.generateAuthUrl();
+						// Open the auth URL in the default browser
+						window.open(authUrl, '_blank');
+						new Notice('Please complete authentication in your browser, then use the "Exchange Auth Code" command.');
+					} catch (error) {
+						new Notice(`Failed to generate auth URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+					}
+				}));
+
+		new Setting(containerEl)
+			.setName('Plaid Environment')
+			.setDesc('Plaid environment (use "production" for limited production)')
+			.addDropdown(dropdown => dropdown
+				.addOption('sandbox', 'Sandbox')
+				.addOption('development', 'Development') 
+				.addOption('production', 'Production')
+				.setValue(this.plugin.settings.plaidEnvironment)
+				.onChange(async (value: any) => {
+					this.plugin.settings.plaidEnvironment = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Connect Bank Account')
+			.setDesc('Use Plaid Link to connect your bank account')
+			.addButton(button => button
+				.setButtonText('Connect with Plaid')
+				.setDisabled(!this.plugin.settings.plaidClientId || !this.plugin.settings.plaidSecret)
+				.onClick(async () => {
+					// Initialize Plaid Link flow
+					await this.initializePlaidLink();
 				}));
 	}
 }

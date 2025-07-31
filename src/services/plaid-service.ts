@@ -27,12 +27,12 @@ export class PlaidService {
 
 	async testConnection(): Promise<boolean> {
 		try {
-			if (!this.settings.plaidAccessToken) {
-				throw new Error('No access token available. Please link your bank account first.');
+			if (!this.settings.plaidAccessId) {
+				throw new Error('No access ID available. Please configure your Plaid Access ID.');
 			}
 
 			const request: AccountsGetRequest = {
-				access_token: this.settings.plaidAccessToken,
+				access_token: this.settings.plaidAccessId,
 			};
 
 			await this.client.accountsGet(request);
@@ -45,12 +45,12 @@ export class PlaidService {
 
 	async getAccounts(): Promise<any[]> {
 		try {
-			if (!this.settings.plaidAccessToken) {
-				throw new Error('No access token available');
+			if (!this.settings.plaidAccessId) {
+				throw new Error('No access ID available');
 			}
 
 			const request: AccountsGetRequest = {
-				access_token: this.settings.plaidAccessToken,
+				access_token: this.settings.plaidAccessId,
 			};
 
 			const response = await this.client.accountsGet(request);
@@ -63,8 +63,8 @@ export class PlaidService {
 
 	async getTransactions(startDate?: string, endDate?: string, count: number = 100): Promise<any[]> {
 		try {
-			if (!this.settings.plaidAccessToken) {
-				throw new Error('No access token available');
+			if (!this.settings.plaidAccessId) {
+				throw new Error('No access ID available');
 			}
 
 			// Default to last 30 days if no dates provided
@@ -72,7 +72,7 @@ export class PlaidService {
 			const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
 			const request: TransactionsGetRequest = {
-				access_token: this.settings.plaidAccessToken,
+				access_token: this.settings.plaidAccessId,
 				start_date: start,
 				end_date: end,
 			};
@@ -171,7 +171,7 @@ export class PlaidService {
 		return !!(
 			this.settings.plaidClientId &&
 			this.settings.plaidSecret &&
-			this.settings.plaidAccessToken
+			this.settings.plaidAccessId
 		);
 	}
 
@@ -180,7 +180,7 @@ export class PlaidService {
 		
 		if (!this.settings.plaidClientId) missing.push('Client ID');
 		if (!this.settings.plaidSecret) missing.push('Secret');
-		if (!this.settings.plaidAccessToken) missing.push('Access Token');
+		if (!this.settings.plaidAccessId) missing.push('Access ID');
 
 		return {
 			configured: missing.length === 0,
