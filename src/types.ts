@@ -59,7 +59,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	googleCalendarClientId: '',
 	googleCalendarClientSecret: '',
 	masterCalendar: {
-		enabled: true,
+		// enabled: true,
 		googleAccounts: [],
 		selectedCalendars: [],
 		syncSettings: {
@@ -329,7 +329,7 @@ export interface CalendarSyncSettings {
 
 // Master Calendar System Types
 export interface MasterCalendarSettings {
-	enabled: boolean;
+	// enabled: boolean;
 	googleAccounts: GoogleAccount[];
 	selectedCalendars: SelectedCalendar[];
 	syncSettings: CalendarSyncSettings;

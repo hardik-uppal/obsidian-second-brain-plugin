@@ -24,10 +24,10 @@ export class MasterCalendarService {
 	 * Initialize the master calendar system
 	 */
 	async initialize(): Promise<void> {
-		if (!this.settings.masterCalendar.enabled) {
-			console.log('Master calendar is disabled');
-			return;
-		}
+		// if (!this.settings.masterCalendar.enabled) {
+		// 	console.log('Master calendar is disabled');
+		// 	return;
+		// }
 
 		await this.accountManager.initialize();
 		await this.templateService.initialize();
@@ -119,26 +119,41 @@ export class MasterCalendarService {
 	 * Sync events from all selected calendars
 	 */
 	async syncAllCalendars(): Promise<void> {
-		if (!this.settings.masterCalendar.enabled) {
+		console.log('🔄 Starting calendar sync...');
+		
+		// if (!this.settings.masterCalendar.enabled) {
+		// 	console.log('❌ Master calendar is disabled');
+		// 	new Notice('Master Calendar is disabled in settings');
+		// 	return;
+		// }
+
+		const enabledCalendars = this.settings.masterCalendar.selectedCalendars.filter(cal => cal.enabled);
+		if (enabledCalendars.length === 0) {
+			console.log('❌ No calendars enabled for sync');
+			new Notice('No calendars are enabled for sync');
 			return;
 		}
 
-		const syncPromises = this.settings.masterCalendar.selectedCalendars
-			.filter(cal => cal.enabled)
-			.map(calendar => this.syncCalendar(calendar));
+		console.log(`📅 Syncing ${enabledCalendars.length} enabled calendars`);
+
+		const syncPromises = enabledCalendars.map(calendar => this.syncCalendar(calendar));
 
 		try {
 			await Promise.all(syncPromises);
+			console.log('✅ All calendars synced successfully');
 			
 			// Process events to create notes if enabled
 			if (this.settings.masterCalendar.eventSettings.createEventNotes) {
+				console.log('📝 Processing events to create notes...');
 				await this.processEventsToNotes();
+			} else {
+				console.log('ℹ️ Event note creation is disabled');
 			}
 			
-			new Notice(`Synced ${this.settings.masterCalendar.selectedCalendars.length} calendars`);
+			new Notice(`Synced ${enabledCalendars.length} calendars`);
 		} catch (error) {
-			console.error('Failed to sync calendars:', error);
-			new Notice('Failed to sync some calendars');
+			console.error('❌ Failed to sync calendars:', error);
+			new Notice('Failed to sync some calendars - check console for details');
 		}
 	}
 
@@ -577,5 +592,81 @@ export class MasterCalendarService {
 	 */
 	setSuggestionService(suggestionService: SuggestionManagementService): void {
 		this.suggestionService = suggestionService;
+	}
+
+	/**
+	 * Diagnostic method to check sync readiness
+	 */
+	async diagnosticSyncReadiness(): Promise<{ ready: boolean; issues: string[] }> {
+		const issues: string[] = [];
+		
+		// // Check if master calendar is enabled
+		// if (!this.settings.masterCalendar.enabled) {
+		// 	issues.push('Master Calendar is disabled in settings');
+		// }
+		
+		// Check for Google accounts
+		if (this.settings.masterCalendar.googleAccounts.length === 0) {
+			issues.push('No Google accounts configured');
+		}
+		
+		// Check for enabled calendars
+		const enabledCalendars = this.settings.masterCalendar.selectedCalendars.filter(cal => cal.enabled);
+		if (enabledCalendars.length === 0) {
+			issues.push('No calendars are enabled for sync');
+		}
+		
+		// Check event notes settings
+		if (this.settings.masterCalendar.eventSettings.createEventNotes) {
+			const eventFolder = this.settings.masterCalendar.eventSettings.eventNotesFolder;
+			if (!eventFolder) {
+				issues.push('Event notes folder is not configured');
+			} else {
+				// Check if folder exists
+				const folder = this.app.vault.getAbstractFileByPath(eventFolder);
+				if (!folder) {
+					issues.push(`Event notes folder '${eventFolder}' does not exist`);
+				}
+			}
+			
+			// Check template settings
+			if (this.settings.masterCalendar.eventSettings.useEventTemplates) {
+				const templateFolder = this.settings.masterCalendar.eventSettings.templateFolder;
+				if (!templateFolder) {
+					issues.push('Template folder is not configured');
+				} else {
+					const folder = this.app.vault.getAbstractFileByPath(templateFolder);
+					if (!folder) {
+						issues.push(`Template folder '${templateFolder}' does not exist`);
+					}
+				}
+			}
+		}
+		
+		// Check account authentication
+		for (const account of this.settings.masterCalendar.googleAccounts) {
+			if (!account.tokens) {
+				issues.push(`Account '${account.label}' is not authenticated`);
+			}
+		}
+		
+		return {
+			ready: issues.length === 0,
+			issues
+		};
+	}
+
+	/**
+	 * Get detailed sync diagnostics
+	 */
+	getSyncDiagnostics(): any {
+		return {
+			// enabled: this.settings.masterCalendar.enabled,
+			accountsCount: this.settings.masterCalendar.googleAccounts.length,
+			enabledCalendarsCount: this.settings.masterCalendar.selectedCalendars.filter(cal => cal.enabled).length,
+			eventSettings: this.settings.masterCalendar.eventSettings,
+			cachedEventsCount: Array.from(this.allEvents.values()).reduce((total, events) => total + events.length, 0),
+			lastSyncAttempt: 'Check console for last sync details'
+		};
 	}
 }

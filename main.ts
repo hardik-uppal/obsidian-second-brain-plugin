@@ -262,6 +262,40 @@ export default class SecondBrainPlugin extends Plugin {
 				new PlaidTokenModal(this.app, this).open();
 			}
 		});
+
+		// Calendar sync diagnostics command
+		this.addCommand({
+			id: 'calendar-sync-diagnostics',
+			name: 'Calendar Sync Diagnostics',
+			callback: async () => {
+				const diagnostics = await this.masterCalendarService.diagnosticSyncReadiness();
+				const details = this.masterCalendarService.getSyncDiagnostics();
+				
+				let message = `## Calendar Sync Diagnostics\n\n`;
+				message += `**Status:** ${diagnostics.ready ? '✅ Ready' : '❌ Issues Found'}\n\n`;
+				
+				if (diagnostics.issues.length > 0) {
+					message += `**Issues:**\n`;
+					diagnostics.issues.forEach(issue => {
+						message += `- ${issue}\n`;
+					});
+					message += `\n`;
+				}
+				
+				message += `**Details:**\n`;
+				message += `- Master Calendar Enabled: ${details.enabled}\n`;
+				message += `- Google Accounts: ${details.accountsCount}\n`;
+				message += `- Enabled Calendars: ${details.enabledCalendarsCount}\n`;
+				message += `- Create Event Notes: ${details.eventSettings.createEventNotes}\n`;
+				message += `- Event Notes Folder: ${details.eventSettings.eventNotesFolder}\n`;
+				message += `- Use Templates: ${details.eventSettings.useEventTemplates}\n`;
+				message += `- Template Folder: ${details.eventSettings.templateFolder}\n`;
+				message += `- Cached Events: ${details.cachedEventsCount}\n`;
+				
+				new Notice(message, 15000);
+				console.log('Calendar Sync Diagnostics:', diagnostics, details);
+			}
+		});
 	}
 
 	private async checkAndInitializeVault(): Promise<void> {
@@ -275,14 +309,14 @@ export default class SecondBrainPlugin extends Plugin {
 		}
 
 		// Initialize master calendar service
-		if (this.settings.masterCalendar.enabled) {
-			try {
-				await this.masterCalendarService.initialize();
-				console.log('Master calendar service initialized');
-			} catch (error) {
-				console.error('Failed to initialize master calendar service:', error);
-			}
+		// if (this.settings.masterCalendar.enabled) {
+		try {
+			await this.masterCalendarService.initialize();
+			console.log('Master calendar service initialized');
+		} catch (error) {
+			console.error('Failed to initialize master calendar service:', error);
 		}
+		// }
 	}
 
 	private async syncTransactions(): Promise<void> {

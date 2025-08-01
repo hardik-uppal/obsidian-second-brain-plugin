@@ -103,6 +103,9 @@ export class EventTemplateService {
 		}
 
 		try {
+			// Ensure event notes folder exists before creating note
+			await this.ensureFolderExists(this.settings.masterCalendar.eventSettings.eventNotesFolder);
+			
 			const notePath = this.getEventNotePath(event);
 			console.log(`Generated note path: ${notePath}`);
 			
@@ -129,6 +132,18 @@ export class EventTemplateService {
 
 		} catch (error) {
 			console.error(`Failed to create event note for ${event.title}:`, error);
+			console.error('Event data:', event);
+			console.error('Settings:', this.settings.masterCalendar.eventSettings);
+			
+			// Provide more specific error information
+			if (error instanceof Error) {
+				if (error.message.includes('ENOENT')) {
+					console.error('Directory does not exist - folder creation may have failed');
+				} else if (error.message.includes('file already exists')) {
+					console.error('File already exists but was not detected by our check');
+				}
+			}
+			
 			return null;
 		}
 	}
@@ -168,13 +183,21 @@ export class EventTemplateService {
 		let fileName = nameFormat
 			.replace(/{{title}}/g, safeTitle)
 			.replace(/{{date}}/g, event.date)
-			.replace(/{{startTime}}/g, event.startTime.replace(':', ''))
-			.replace(/{{id}}/g, event.id)
+			.replace(/{{startTime}}/g, event.startTime.replace(/[:\s]/g, ''))
+			.replace(/{{id}}/g, event.id.replace(/[^\w-]/g, '-'))
 			.replace(/{{calendar}}/g, this.sanitizeFileName(event.sourceCalendarName));
 
 		// Ensure unique filename by adding timestamp if needed
 		const timestamp = moment().format('HHmmss');
 		fileName = fileName.replace(/{{timestamp}}/g, timestamp);
+
+		// Final sanitization to ensure no illegal characters
+		fileName = this.sanitizeFileName(fileName);
+		
+		// Ensure filename is not empty
+		if (!fileName || fileName.trim() === '') {
+			fileName = `event-${event.date}-${timestamp}`;
+		}
 
 		return fileName;
 	}
@@ -250,7 +273,7 @@ export class EventTemplateService {
 		const formattedDate = moment(event.date).format('dddd, MMMM Do YYYY');
 		const timeString = event.startTime === 'All Day' ? 'All Day' : `${event.startTime} - ${event.endTime}`;
 		
-		return template
+		let processed = template
 			.replace(/{{title}}/g, event.title)
 			.replace(/{{date}}/g, event.date)
 			.replace(/{{formattedDate}}/g, formattedDate)
@@ -261,9 +284,36 @@ export class EventTemplateService {
 			.replace(/{{description}}/g, event.description || '')
 			.replace(/{{attendees}}/g, event.attendees.join(', '))
 			.replace(/{{calendar}}/g, event.sourceCalendarName)
-			.replace(/{{tags}}/g, event.tags.map(tag => `#${tag}`).join(' '))
+			.replace(/{{calendarId}}/g, event.sourceCalendarId)
+			.replace(/{{tags}}/g, event.tags.join(', '))
 			.replace(/{{id}}/g, event.id)
 			.replace(/{{lastModified}}/g, event.lastModified);
+
+		// Handle conditional blocks for location
+		if (event.location) {
+			processed = processed.replace(/{{#if location}}(.*?){{\/if}}/gs, '$1');
+		} else {
+			processed = processed.replace(/{{#if location}}.*?{{\/if}}/gs, '');
+		}
+
+		// Handle conditional blocks for description
+		if (event.description) {
+			processed = processed.replace(/{{#if description}}(.*?){{\/if}}/gs, '$1');
+		} else {
+			processed = processed.replace(/{{#if description}}.*?{{\/if}}/gs, '');
+		}
+
+		// Handle attendees list
+		if (event.attendees && event.attendees.length > 0) {
+			const attendeesList = event.attendees.map(attendee => `- ${attendee}`).join('\n');
+			processed = processed.replace(/{{#if attendees}}(.*?){{\/if}}/gs, '$1');
+			processed = processed.replace(/{{#each attendees}}.*?{{\/each}}/gs, attendeesList);
+		} else {
+			processed = processed.replace(/{{#if attendees}}.*?{{\/if}}/gs, '');
+			processed = processed.replace(/{{#each attendees}}.*?{{\/each}}/gs, '');
+		}
+
+		return processed;
 	}
 
 	/**
