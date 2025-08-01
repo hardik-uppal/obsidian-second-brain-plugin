@@ -1,0 +1,436 @@
+/* LLM Suggestion Approval UI Styles */
+
+.suggestion-approval-container {
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Header */
+.suggestion-header {
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 12px;
+}
+
+.suggestion-title-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.suggestion-title {
+  margin: 0;
+  color: var(--text-normal);
+}
+
+.suggestion-refresh-btn {
+  background: none;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.2s;
+}
+
+.suggestion-refresh-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.suggestion-summary {
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.suggestion-count {
+  background: var(--background-modifier-accent);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8em;
+}
+
+/* Empty State */
+.suggestion-empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+.suggestion-empty-icon {
+  font-size: 2.5em;
+  margin-bottom: 16px;
+}
+
+.suggestion-empty-text {
+  font-size: 0.9em;
+  line-height: 1.4;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+/* Batch List */
+.suggestion-batch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.suggestion-batch {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-primary-alt);
+  overflow: hidden;
+}
+
+.batch-header {
+  padding: 12px 16px;
+  background: var(--background-secondary);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.batch-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.batch-title h4 {
+  margin: 0;
+  color: var(--text-normal);
+  font-size: 1em;
+}
+
+.batch-date {
+  color: var(--text-muted);
+  font-size: 0.8em;
+}
+
+.batch-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.batch-stats-text {
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+
+.batch-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.batch-approve-all,
+.batch-apply-all {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+/* Suggestion List */
+.suggestion-list {
+  padding: 0;
+}
+
+.suggestion-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  transition: background 0.2s;
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.suggestion-item:hover {
+  background: var(--background-modifier-hover);
+}
+
+.suggestion-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.suggestion-item-info {
+  flex: 1;
+}
+
+.suggestion-item-title {
+  font-weight: 500;
+  color: var(--text-normal);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.suggestion-item-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 0.8em;
+  color: var(--text-muted);
+}
+
+.suggestion-type {
+  text-transform: capitalize;
+  background: var(--background-modifier-accent);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.suggestion-confidence {
+  font-weight: 500;
+}
+
+.confidence-high { color: var(--text-success); }
+.confidence-medium { color: var(--text-warning); }
+.confidence-low { color: var(--text-error); }
+
+.suggestion-priority {
+  margin-left: 12px;
+}
+
+.priority-badge {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.7em;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.priority-high {
+  background: var(--background-modifier-error);
+  color: var(--text-error);
+}
+
+.priority-medium {
+  background: var(--background-modifier-warning);
+  color: var(--text-warning);
+}
+
+.priority-low {
+  background: var(--background-modifier-success);
+  color: var(--text-muted);
+}
+
+/* Suggestion Status */
+.suggestion-pending {
+  border-left: 3px solid var(--interactive-accent);
+}
+
+.suggestion-approved {
+  border-left: 3px solid var(--text-success);
+  background: var(--background-modifier-success);
+}
+
+.suggestion-rejected {
+  border-left: 3px solid var(--text-error);
+  opacity: 0.6;
+}
+
+.suggestion-applied {
+  border-left: 3px solid var(--text-success);
+  background: var(--background-modifier-success);
+  opacity: 0.8;
+}
+
+/* Preview Section */
+.suggestion-preview {
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: var(--background-secondary);
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+.preview-section {
+  margin-bottom: 4px;
+  color: var(--text-muted);
+}
+
+.preview-section:last-child {
+  margin-bottom: 0;
+}
+
+.preview-section strong {
+  color: var(--text-normal);
+}
+
+/* Actions */
+.suggestion-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.suggestion-actions button {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75em;
+  border: 1px solid var(--background-modifier-border);
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.suggestion-actions button:hover {
+  background: var(--background-modifier-hover);
+}
+
+.suggestion-approve {
+  border-color: var(--text-success);
+  color: var(--text-success);
+}
+
+.suggestion-approve:hover {
+  background: var(--background-modifier-success);
+}
+
+.suggestion-reject {
+  border-color: var(--text-error);
+  color: var(--text-error);
+}
+
+.suggestion-reject:hover {
+  background: var(--background-modifier-error);
+}
+
+.suggestion-apply {
+  border-color: var(--text-warning);
+  color: var(--text-warning);
+}
+
+.suggestion-apply:hover {
+  background: var(--background-modifier-warning);
+}
+
+.suggestion-preview-btn,
+.suggestion-link {
+  border-color: var(--interactive-accent);
+  color: var(--interactive-accent);
+}
+
+.suggestion-preview-btn:hover,
+.suggestion-link:hover {
+  background: var(--background-modifier-accent);
+}
+
+.suggestion-show-more {
+  width: 100%;
+  padding: 8px;
+  margin: 8px 0;
+  background: var(--background-secondary);
+  border: 1px dashed var(--background-modifier-border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.suggestion-show-more:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+/* Footer */
+.suggestion-footer {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--background-modifier-border);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.suggestion-cleanup,
+.suggestion-clear-all {
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  border: 1px solid var(--background-modifier-border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.suggestion-cleanup {
+  background: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.suggestion-cleanup:hover {
+  background: var(--background-modifier-hover);
+}
+
+.suggestion-clear-all {
+  background: var(--background-modifier-error);
+  color: var(--text-error);
+  border-color: var(--text-error);
+}
+
+.suggestion-clear-all:hover {
+  background: var(--text-error);
+  color: var(--background-primary);
+}
+
+/* Responsive adjustments */
+@media (max-width: 400px) {
+  .suggestion-approval-container {
+    padding: 12px;
+  }
+  
+  .batch-title {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .suggestion-item-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .suggestion-actions {
+    justify-content: flex-start;
+  }
+  
+  .suggestion-footer {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+/* Dark theme adjustments */
+.theme-dark .suggestion-batch {
+  background: var(--background-primary);
+}
+
+.theme-dark .batch-header {
+  background: var(--background-secondary-alt);
+}
+
+/* Animation for new suggestions */
+@keyframes suggestion-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.suggestion-item.new {
+  animation: suggestion-appear 0.3s ease-out;
+}

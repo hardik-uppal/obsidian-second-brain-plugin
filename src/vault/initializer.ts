@@ -15,22 +15,30 @@ export class VaultInitializer {
 		try {
 			new Notice('Initializing Second Brain vault structure...');
 			
+			console.log('Starting vault initialization...');
+			
 			// Create folder structure
+			console.log('Creating folder structure...');
 			await this.createFolderStructure();
 			
 			// Create template files
+			console.log('Creating template files...');
 			await this.createTemplateFiles();
 			
 			// Check for required plugins
+			console.log('Checking required plugins...');
 			await this.checkRequiredPlugins();
 			
 			// Create sample data
+			console.log('Creating sample data...');
 			await this.createSampleData();
 			
+			console.log('Vault initialization completed successfully');
 			new Notice('Second Brain vault initialized successfully!');
 			return true;
-		} catch (error) {
+		} catch (error: any) {
 			console.error('Vault initialization failed:', error);
+			console.error('Error stack:', error.stack);
 			new Notice(`Vault initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
 			return false;
 		}
@@ -42,23 +50,53 @@ export class VaultInitializer {
 			this.settings.transactionsFolder,
 			this.settings.eventsFolder,
 			this.settings.tasksFolder,
-			this.settings.templatesFolder
+			this.settings.templatesFolder,
+			this.settings.chatsFolder
 		];
 
+		console.log('Creating folders:', folders);
+		
 		for (const folderPath of folders) {
-			await this.ensureFolderExists(folderPath);
+			try {
+				await this.ensureFolderExists(folderPath);
+				console.log(`Successfully ensured folder: ${folderPath}`);
+			} catch (error: any) {
+				console.error(`Failed to create folder ${folderPath}:`, error);
+				throw new Error(`Failed to create folder ${folderPath}: ${error.message || error}`);
+			}
 		}
 	}
 
 	private async ensureFolderExists(path: string): Promise<TFolder> {
-		const folder = this.app.vault.getAbstractFileByPath(path);
-		
-		if (folder && folder instanceof TFolder) {
-			return folder;
+		try {
+			// First check if folder already exists
+			const existingFolder = this.app.vault.getAbstractFileByPath(path);
+			if (existingFolder && existingFolder instanceof TFolder) {
+				console.log(`Folder already exists: ${path}`);
+				return existingFolder;
+			}
+			
+			// If it exists but is not a folder, this is an error
+			if (existingFolder) {
+				throw new Error(`Path ${path} exists but is not a folder`);
+			}
+			
+			// Create folder if it doesn't exist
+			console.log(`Creating folder: ${path}`);
+			return await this.app.vault.createFolder(path);
+		} catch (error: any) {
+			console.error(`Error ensuring folder exists: ${path}`, error);
+			
+			// Try to get the folder again in case it was created by another process
+			const retryFolder = this.app.vault.getAbstractFileByPath(path);
+			if (retryFolder && retryFolder instanceof TFolder) {
+				console.log(`Folder found on retry: ${path}`);
+				return retryFolder;
+			}
+			
+			// If all else fails, throw the original error with more context
+			throw new Error(`Failed to ensure folder exists: ${path}. Original error: ${error.message || error}`);
 		}
-		
-		// Create folder if it doesn't exist
-		return await this.app.vault.createFolder(path);
 	}
 
 	private async createTemplateFiles(): Promise<void> {

@@ -1,11 +1,14 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf } from 'obsidian';
 import { PluginSettings, DEFAULT_SETTINGS, PluginState } from './src/types';
 import { VaultInitializer } from './src/vault/initializer';
-import { LLMService } from './src/services/llm-service';
+import { IntelligenceBrokerService } from './src/services/llm-service';
 import { PlaidService } from './src/services/plaid-service';
 import { CalendarService } from './src/services/calendar-service';
+import { MasterCalendarService } from './src/services/master-calendar-service';
+import { SuggestionManagementService } from './src/services/suggestion-management-service';
 import { TemplateEngine, TemplateDataProcessor } from './src/utils/templates';
 import { ChatView, CHAT_VIEW_TYPE } from './src/ui/ChatView';
+import { CalendarView, CALENDAR_VIEW_TYPE } from './src/ui/CalendarView';
 
 export default class SecondBrainPlugin extends Plugin {
 	settings: PluginSettings;
@@ -13,9 +16,11 @@ export default class SecondBrainPlugin extends Plugin {
 	
 	// Services
 	vaultInitializer: VaultInitializer;
-	llmService: LLMService;
+	intelligenceBrokerService: IntelligenceBrokerService;
 	plaidService: PlaidService;
 	calendarService: CalendarService;
+	masterCalendarService: MasterCalendarService;
+	suggestionManagementService: SuggestionManagementService;
 
 	async onload() {
 		await this.loadSettings();
@@ -34,8 +39,12 @@ export default class SecondBrainPlugin extends Plugin {
 		// Initialize services
 		this.initializeServices();
 
-		// Register ChatView
+		// Initialize suggestion management service
+		await this.suggestionManagementService.initialize();
+
+		// Register views
 		this.registerView(CHAT_VIEW_TYPE, (leaf) => new ChatView(leaf, this));
+		this.registerView(CALENDAR_VIEW_TYPE, (leaf) => new CalendarView(leaf, this.masterCalendarService));
 
 		// Add ribbon icon for main plugin
 		const ribbonIconEl = this.addRibbonIcon('brain', 'Second Brain Integration', (evt: MouseEvent) => {
@@ -48,6 +57,12 @@ export default class SecondBrainPlugin extends Plugin {
 			this.activateChatView();
 		});
 		chatRibbonIconEl.addClass('second-brain-chat-ribbon-class');
+
+		// Add ribbon icon for calendar
+		const calendarRibbonIconEl = this.addRibbonIcon('calendar', 'Open Master Calendar', (evt: MouseEvent) => {
+			this.activateCalendarView();
+		});
+		calendarRibbonIconEl.addClass('second-brain-calendar-ribbon-class');
 
 		// Add status bar item
 		const statusBarItemEl = this.addStatusBarItem();
@@ -71,9 +86,14 @@ export default class SecondBrainPlugin extends Plugin {
 
 	private initializeServices(): void {
 		this.vaultInitializer = new VaultInitializer(this.app, this.settings);
-		this.llmService = new LLMService(this.settings);
-		this.plaidService = new PlaidService(this.settings);
+		this.intelligenceBrokerService = new IntelligenceBrokerService(this.app, this.settings);
+		this.plaidService = new PlaidService(this.settings, async (settings) => {
+			this.settings = settings;
+			await this.saveSettings();
+		});
 		this.calendarService = new CalendarService(this.settings);
+		this.masterCalendarService = new MasterCalendarService(this.app, this.settings);
+		this.suggestionManagementService = new SuggestionManagementService(this.app, this.settings, this.intelligenceBrokerService);
 	}
 
 	private addCommands(): void {
@@ -85,6 +105,20 @@ export default class SecondBrainPlugin extends Plugin {
 				const success = await this.vaultInitializer.initializeVault();
 				if (success) {
 					this.state.initialized = true;
+				}
+			}
+		});
+
+		// Connect bank account command
+		this.addCommand({
+			id: 'connect-bank-account',
+			name: 'Connect Bank Account (Plaid)',
+			callback: async () => {
+				try {
+					await this.plaidService?.connectBankAccount();
+				} catch (error: any) {
+					console.error('Command failed - Connect Bank Account:', error);
+					new Notice(`Failed to connect bank account: ${error?.message || 'Unknown error'}`, 6000);
 				}
 			}
 		});
@@ -103,7 +137,25 @@ export default class SecondBrainPlugin extends Plugin {
 			id: 'sync-events',
 			name: 'Sync Calendar Events',
 			callback: async () => {
-				await this.syncEvents();
+				await this.masterCalendarService.syncAllCalendars();
+			}
+		});
+
+		// Discover calendars command
+		this.addCommand({
+			id: 'discover-calendars',
+			name: 'Discover Available Calendars',
+			callback: async () => {
+				await this.masterCalendarService.refreshAllAccounts();
+			}
+		});
+
+		// Resolve conflicts command
+		this.addCommand({
+			id: 'resolve-conflicts',
+			name: 'Resolve Calendar Conflicts',
+			callback: async () => {
+				await this.showConflictResolutionModal();
 			}
 		});
 
@@ -134,21 +186,80 @@ export default class SecondBrainPlugin extends Plugin {
 			}
 		});
 
-		// OAuth2 auth code exchange command
+		// Exchange Plaid token command
 		this.addCommand({
-			id: 'exchange-auth-code',
-			name: 'Exchange Google Calendar Auth Code',
+			id: 'exchange-plaid-token',
+			name: 'Exchange Plaid Token',
 			callback: () => {
-				new AuthCodeModal(this.app, this).open();
+				new PlaidTokenModal(this.app, this).open();
 			}
 		});
-
-		// Open chat view command
 		this.addCommand({
 			id: 'open-chat',
 			name: 'Open Second Brain Chat',
 			callback: async () => {
 				await this.activateChatView();
+			}
+		});
+
+		// Open calendar view command
+		this.addCommand({
+			id: 'open-calendar',
+			name: 'Open Master Calendar',
+			callback: async () => {
+				await this.activateCalendarView();
+			}
+		});
+
+		// Sync calendars command
+		this.addCommand({
+			id: 'sync-calendars',
+			name: 'Sync All Calendars',
+			callback: async () => {
+				await this.masterCalendarService.syncAllCalendars();
+			}
+		});
+
+		// Add Google account command
+		this.addCommand({
+			id: 'add-google-account',
+			name: 'Add Google Calendar Account',
+			callback: async () => {
+				new AddGoogleAccountModal(this.app, this, () => {}).open();
+			}
+		});
+
+		// Diagnostic command for network troubleshooting
+		this.addCommand({
+			id: 'plaid-network-diagnostics',
+			name: 'Run Plaid Network Diagnostics',
+			callback: async () => {
+				try {
+					new Notice('Running network diagnostics...', 2000);
+					const diagnostics = await this.plaidService?.diagnoseNetworkConnectivity();
+					
+					if (diagnostics) {
+						const message = `Plaid Network Diagnostics:\n\n${diagnostics.details.join('\n')}\n\nOverall: ${diagnostics.success ? '✅ Healthy' : '❌ Issues Found'}`;
+						
+						// Show in console for detailed info
+						console.log('Plaid Network Diagnostics Results:', diagnostics);
+						
+						// Show user-friendly notice
+						new Notice(message, 10000);
+					}
+				} catch (error: any) {
+					console.error('Diagnostics command failed:', error);
+					new Notice(`Diagnostics failed: ${error?.message || 'Unknown error'}`, 5000);
+				}
+			}
+		});
+
+		// Exchange Plaid token command
+		this.addCommand({
+			id: 'exchange-plaid-token',
+			name: 'Exchange Plaid Token',
+			callback: () => {
+				new PlaidTokenModal(this.app, this).open();
 			}
 		});
 	}
@@ -162,6 +273,16 @@ export default class SecondBrainPlugin extends Plugin {
 			this.state.initialized = true;
 			new Notice('Second Brain vault ready!');
 		}
+
+		// Initialize master calendar service
+		if (this.settings.masterCalendar.enabled) {
+			try {
+				await this.masterCalendarService.initialize();
+				console.log('Master calendar service initialized');
+			} catch (error) {
+				console.error('Failed to initialize master calendar service:', error);
+			}
+		}
 	}
 
 	private async syncTransactions(): Promise<void> {
@@ -172,7 +293,11 @@ export default class SecondBrainPlugin extends Plugin {
 
 		if (!this.plaidService.isConfigured()) {
 			const status = this.plaidService.getConfigurationStatus();
-			new Notice(`Plaid not configured. Missing: ${status.missing.join(', ')}`);
+			if (!this.plaidService.hasCredentials()) {
+				new Notice(`Plaid not configured. Missing: ${status.missing.join(', ')}`);
+			} else {
+				new Notice('Plaid credentials configured but no access token. Please connect your bank account first.');
+			}
 			return;
 		}
 
@@ -207,45 +332,13 @@ export default class SecondBrainPlugin extends Plugin {
 	}
 
 	private async syncEvents(): Promise<void> {
-		if (this.state.syncStatus.events.isRunning) {
-			new Notice('Event sync already in progress');
-			return;
-		}
+		// Redirect to new master calendar sync
+		await this.masterCalendarService.syncAllCalendars();
+	}
 
-		if (!this.calendarService.isConfigured()) {
-			const status = this.calendarService.getConfigurationStatus();
-			new Notice(`Google Calendar not configured. Missing: ${status.missing.join(', ')}`);
-			return;
-		}
-
-		this.state.syncStatus.events.isRunning = true;
-		this.state.syncStatus.events.errors = [];
-
-		try {
-			const events = await this.calendarService.getNewEvents();
-			
-			for (const event of events) {
-				try {
-					await this.processEvent(event);
-					this.state.syncStatus.events.itemsProcessed++;
-				} catch (error) {
-					const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-					this.state.syncStatus.events.errors.push(errorMsg);
-					console.error('Failed to process event:', error);
-				}
-			}
-
-			// Update last sync time
-			this.settings.lastEventSync = new Date().toISOString();
-			await this.saveSettings();
-
-			new Notice(`Synced ${this.state.syncStatus.events.itemsProcessed} events`);
-		} catch (error) {
-			const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-			new Notice(`Event sync failed: ${errorMsg}`);
-		} finally {
-			this.state.syncStatus.events.isRunning = false;
-		}
+	async showConflictResolutionModal(): Promise<void> {
+		// For now, just show a message about using the new system
+		new Notice('Conflict resolution is handled automatically in the new calendar system. Check the settings for calendar priorities.', 5000);
 	}
 
 	private async processTransaction(transaction: any): Promise<void> {
@@ -255,7 +348,7 @@ export default class SecondBrainPlugin extends Plugin {
 		// Use LLM to enhance the data if configured
 		if (this.settings.llmApiKey) {
 			try {
-				const llmResult = await this.llmService.parseTransaction(transaction);
+				const llmResult = await this.intelligenceBrokerService.parseTransaction(transaction);
 				// Merge LLM suggestions with template data
 				templateData.suggestions = llmResult.suggestions;
 				if (llmResult.tags) {
@@ -287,7 +380,7 @@ export default class SecondBrainPlugin extends Plugin {
 		// Use LLM to enhance the data if configured
 		if (this.settings.llmApiKey) {
 			try {
-				const llmResult = await this.llmService.parseEvent(event);
+				const llmResult = await this.intelligenceBrokerService.parseEvent(event);
 				templateData.suggestions = llmResult.suggestions;
 				if (llmResult.tags) {
 					templateData.tags = [...templateData.tags, ...llmResult.tags];
@@ -470,6 +563,27 @@ export default class SecondBrainPlugin extends Plugin {
 		}
 	}
 
+	async activateCalendarView(): Promise<void> {
+		const { workspace } = this.app;
+
+		let leaf: WorkspaceLeaf | null = null;
+		const leaves = workspace.getLeavesOfType(CALENDAR_VIEW_TYPE);
+
+		if (leaves.length > 0) {
+			// A calendar view already exists, focus it
+			leaf = leaves[0];
+		} else {
+			// Create a new calendar view in the right sidebar
+			leaf = workspace.getRightLeaf(false);
+			await leaf?.setViewState({ type: CALENDAR_VIEW_TYPE, active: true });
+		}
+
+		// Reveal the leaf
+		if (leaf) {
+			workspace.revealLeaf(leaf);
+		}
+	}
+
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
@@ -478,9 +592,90 @@ export default class SecondBrainPlugin extends Plugin {
 		await this.saveData(this.settings);
 		
 		// Update services with new settings
-		if (this.llmService) this.llmService.updateSettings(this.settings);
+		if (this.intelligenceBrokerService) this.intelligenceBrokerService.updateSettings(this.settings);
+		if (this.suggestionManagementService) this.suggestionManagementService.updateSettings(this.settings);
 		if (this.plaidService) this.plaidService.updateSettings(this.settings);
 		if (this.calendarService) this.calendarService.updateSettings(this.settings);
+	}
+
+	async addGoogleAccount(label: string): Promise<void> {
+		try {
+			if (!this.settings.googleCalendarClientId || !this.settings.googleCalendarClientSecret) {
+				new Notice('Please configure Google OAuth2 credentials in settings first');
+				return;
+			}
+
+			// Generate auth URL using the master calendar service
+			const authUrl = this.masterCalendarService.generateAccountAuthUrl(label);
+			
+			// Open browser for OAuth
+			window.open(authUrl, '_blank');
+			
+			new Notice(`1. Complete authentication in your browser for "${label}"\n2. Copy the authorization code\n3. Use "Exchange Code" in settings`, 8000);
+		} catch (error) {
+			const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+			new Notice(`Failed to start Google account setup: ${errorMsg}`);
+		}
+	}
+}
+
+// Add Google Account Modal
+class AddGoogleAccountModal extends Modal {
+	plugin: SecondBrainPlugin;
+	onSubmit: (label: string) => void;
+
+	constructor(app: App, plugin: SecondBrainPlugin, onSubmit: (label: string) => void) {
+		super(app);
+		this.plugin = plugin;
+		this.onSubmit = onSubmit;
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.createEl('h2', { text: 'Add Google Account' });
+
+		contentEl.createEl('p', { 
+			text: 'Enter a label for this Google account (e.g., "Work Gmail", "Personal Calendar")' 
+		});
+
+		const input = contentEl.createEl('input', {
+			type: 'text',
+			placeholder: 'Enter account label...'
+		});
+		input.style.width = '100%';
+		input.style.marginBottom = '10px';
+
+		const buttonContainer = contentEl.createDiv();
+		
+		const continueButton = buttonContainer.createEl('button', { text: 'Continue to Google Auth' });
+		continueButton.onclick = () => {
+			const label = input.value.trim();
+			if (!label) {
+				new Notice('Please enter an account label');
+				return;
+			}
+			
+			// Start the OAuth flow
+			this.plugin.addGoogleAccount(label);
+			
+			// Show the auth code modal for completing the setup
+			setTimeout(() => {
+				new AuthCodeModal(this.app, this.plugin, label).open();
+			}, 1000);
+			
+			this.close();
+		};
+
+		const cancelButton = buttonContainer.createEl('button', { text: 'Cancel' });
+		cancelButton.onclick = () => this.close();
+
+		// Focus the input
+		input.focus();
+	}
+
+	onClose() {
+		const { contentEl } = this;
+		contentEl.empty();
 	}
 }
 
@@ -530,21 +725,23 @@ class JsonImportModal extends Modal {
 	}
 }
 
-// Auth Code Exchange Modal
+// Auth Code Exchange Modal for Google Accounts
 class AuthCodeModal extends Modal {
 	plugin: SecondBrainPlugin;
+	accountLabel: string;
 
-	constructor(app: App, plugin: SecondBrainPlugin) {
+	constructor(app: App, plugin: SecondBrainPlugin, accountLabel: string) {
 		super(app);
 		this.plugin = plugin;
+		this.accountLabel = accountLabel;
 	}
 
 	onOpen() {
 		const { contentEl } = this;
-		contentEl.createEl('h2', { text: 'Exchange Google Calendar Auth Code' });
+		contentEl.createEl('h2', { text: `Complete Setup for "${this.accountLabel}"` });
 
 		contentEl.createEl('p', { 
-			text: 'After completing authentication in your browser, paste the authorization code here:' 
+			text: 'After completing authentication in your browser, copy and paste the authorization code here:' 
 		});
 
 		const input = contentEl.createEl('input', {
@@ -554,9 +751,15 @@ class AuthCodeModal extends Modal {
 		input.style.width = '100%';
 		input.style.marginBottom = '10px';
 
+		// Add helper text
+		contentEl.createEl('div', {
+			cls: 'setting-item-description',
+			text: 'The authorization code should be a long string of characters. It may be shown in your browser or in a callback URL.'
+		});
+
 		const buttonContainer = contentEl.createDiv();
 		
-		const exchangeButton = buttonContainer.createEl('button', { text: 'Exchange Code' });
+		const exchangeButton = buttonContainer.createEl('button', { text: 'Complete Setup' });
 		exchangeButton.onclick = async () => {
 			const authCode = input.value.trim();
 			if (!authCode) {
@@ -565,18 +768,86 @@ class AuthCodeModal extends Modal {
 			}
 
 			try {
-				new Notice('Exchanging authorization code...');
-				const tokens = await this.plugin.calendarService.exchangeCodeForTokens(authCode);
-				
-				// Save tokens to settings
-				this.plugin.settings.googleCalendarTokens = JSON.stringify(tokens);
+				new Notice('Setting up Google account...');
+				await this.plugin.masterCalendarService.completeAccountSetup(this.accountLabel, authCode);
 				await this.plugin.saveSettings();
 				
-				new Notice('Google Calendar connected successfully!');
+				new Notice(`Google account "${this.accountLabel}" setup completed!`);
 				this.close();
 			} catch (error) {
 				const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-				new Notice(`Failed to exchange auth code: ${errorMsg}`);
+				new Notice(`Failed to complete account setup: ${errorMsg}`);
+			}
+		};
+
+		const cancelButton = buttonContainer.createEl('button', { text: 'Cancel' });
+		cancelButton.onclick = () => this.close();
+	}
+
+	onClose() {
+		const { contentEl } = this;
+		contentEl.empty();
+	}
+}
+
+// Plaid Token Exchange Modal
+class PlaidTokenModal extends Modal {
+	plugin: SecondBrainPlugin;
+
+	constructor(app: App, plugin: SecondBrainPlugin) {
+		super(app);
+		this.plugin = plugin;
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.createEl('h2', { text: 'Exchange Plaid Token' });
+
+		contentEl.createEl('p', { 
+			text: 'After completing bank authentication in your browser, copy and paste the Plaid token here:' 
+		});
+
+		const input = contentEl.createEl('input', {
+			type: 'text',
+			placeholder: 'Paste Plaid token here...'
+		});
+		input.style.width = '100%';
+		input.style.marginBottom = '10px';
+
+		// Add helper text
+		contentEl.createEl('div', {
+			cls: 'setting-item-description',
+			text: 'The token should start with "public-" and be a long string of characters.'
+		});
+
+		const buttonContainer = contentEl.createDiv();
+		
+		const exchangeButton = buttonContainer.createEl('button', { text: 'Exchange Token' });
+		exchangeButton.onclick = async () => {
+			const token = input.value.trim();
+			if (!token) {
+				new Notice('Please enter the Plaid token');
+				return;
+			}
+
+			if (!token.startsWith('public-')) {
+				new Notice('Invalid token format. Plaid tokens should start with "public-"');
+				return;
+			}
+
+			try {
+				new Notice('Exchanging Plaid token...');
+				const success = await this.plugin.plaidService.handlePublicTokenFromBrowser(token);
+				
+				if (success) {
+					new Notice('Plaid token exchanged successfully! Bank account connected.');
+					this.close();
+				} else {
+					new Notice('Failed to exchange Plaid token. Please try again.');
+				}
+			} catch (error) {
+				const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+				new Notice(`Failed to exchange Plaid token: ${errorMsg}`);
 			}
 		};
 
@@ -635,6 +906,16 @@ class SecondBrainSettingTab extends PluginSettingTab {
 		// Plaid Settings
 		containerEl.createEl('h3', { text: 'Plaid Configuration' });
 
+		// Add setup guidance
+		const plaidStatusText = this.plugin.plaidService?.hasCredentials() 
+			? (this.plugin.settings.plaidAccessToken ? '✅ Configured and Connected' : '⚠️ Credentials set - Ready to connect')
+			: '❌ Not configured';
+		
+		containerEl.createEl('div', { 
+			cls: 'setting-item-description',
+			text: `Status: ${plaidStatusText}\n\n📋 Setup Steps:\n1. Get credentials from Plaid Dashboard (https://dashboard.plaid.com/)\n2. For Production: Request access via Dashboard (required for live banking)\n3. Enter Client ID and Secret below\n4. Choose environment (Sandbox = fake data, Production = real banking)\n5. Click "Connect Bank Account" to link your bank`
+		});
+
 		new Setting(containerEl)
 			.setName('Plaid Client ID')
 			.setDesc('Your Plaid client ID')
@@ -657,14 +938,169 @@ class SecondBrainSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		// Google Calendar Settings (OAuth2)
-		containerEl.createEl('h3', { text: 'Google Calendar Configuration (OAuth2)' });
-
 		new Setting(containerEl)
-			.setName('Client ID')
-			.setDesc('Your Google Calendar OAuth2 Client ID')
+			.setName('Plaid Environment')
+			.setDesc('Choose your Plaid environment:\n• Sandbox: Testing with fake data\n• Production: Live banking data (requires Plaid Dashboard approval)')
+			.addDropdown(dropdown => dropdown
+				.addOption('sandbox', 'Sandbox (Testing)')
+				.addOption('production', 'Production (Live Banking)')
+				.setValue(this.plugin.settings.plaidEnvironment)
+				.onChange(async (value: any) => {
+					this.plugin.settings.plaidEnvironment = value;
+					await this.plugin.saveSettings();
+					// Reinitialize Plaid service with new environment
+					if (this.plugin.plaidService) {
+						this.plugin.plaidService.updateSettings(this.plugin.settings);
+					}
+					// Refresh settings display to show/hide production notice
+					this.display();
+				}));
+
+		// Production environment notice
+		if (this.plugin.settings.plaidEnvironment === 'production') {
+			containerEl.createEl('div', { 
+				cls: 'setting-item-description',
+				text: '🏦 Production Mode: You\'ll connect to real bank accounts and get live transaction data. Ensure you have Production API access approved in your Plaid Dashboard.'
+			});
+		}
+
+		// Bank Account Connection
+		const plaidStatus = this.plugin.plaidService?.getConfigurationStatus() || { configured: false, missing: [] };
+		const hasCredentials = this.plugin.plaidService?.hasCredentials() || false;
+		
+		new Setting(containerEl)
+			.setName('Bank Account Connection')
+			.setDesc(
+				this.plugin.settings.plaidAccessToken 
+					? 'Bank account is connected. Click to reconnect or test connection.'
+					: hasCredentials 
+						? 'Connect your bank account to sync transactions'
+						: 'Enter Plaid credentials above first'
+			)
+			.addButton(button => button
+				.setButtonText(
+					this.plugin.settings.plaidAccessToken 
+						? 'Test Connection' 
+						: 'Connect Bank Account'
+				)
+				.setDisabled(!hasCredentials)
+				.onClick(async () => {
+					if (this.plugin.settings.plaidAccessToken) {
+						// Test existing connection
+						const isValid = await this.plugin.plaidService?.testConnection();
+						new Notice(isValid ? 'Bank connection is working!' : 'Bank connection failed. Please reconnect.');
+					} else {
+						// Connect new account
+						try {
+							await this.plugin.plaidService?.connectBankAccount();
+						} catch (error) {
+							console.error('Plaid connection error:', error);
+							new Notice(`Failed to start bank connection: ${error instanceof Error ? error.message : 'Unknown error'}`);
+						}
+					}
+				}))
+			.addButton(button => button
+				.setButtonText('Reconnect')
+				.setClass('mod-warning')
+				.setDisabled(!hasCredentials)
+				.onClick(async () => {
+					// Clear existing token and reconnect
+					this.plugin.settings.plaidAccessToken = '';
+					await this.plugin.saveSettings();
+					try {
+						await this.plugin.plaidService?.connectBankAccount();
+					} catch (error) {
+						console.error('Plaid reconnection error:', error);
+						new Notice(`Failed to reconnect: ${error instanceof Error ? error.message : 'Unknown error'}`);
+					}
+				}))
+			.addButton(button => button
+				.setButtonText('Debug Connection')
+				.setClass('mod-secondary')
+				.setDisabled(!hasCredentials)
+				.onClick(async () => {
+					// Run network diagnostics
+					try {
+						new Notice('Running network diagnostics...', 2000);
+						const diagnostics = await this.plugin.plaidService?.diagnoseNetworkConnectivity();
+						
+						if (diagnostics) {
+							const message = `Plaid Network Diagnostics:\n\n${diagnostics.details.join('\n')}\n\nOverall: ${diagnostics.success ? '✅ Healthy' : '❌ Issues Found'}`;
+							
+							// Show in console for detailed info
+							console.log('Plaid Network Diagnostics Results:', diagnostics);
+							
+							// Show user-friendly notice
+							new Notice(message, 10000);
+						}
+					} catch (error) {
+						console.error('Diagnostics failed:', error);
+						new Notice(`Diagnostics failed: ${error instanceof Error ? error.message : 'Unknown error'}`, 5000);
+					}
+				}));
+
+		// Add Exchange Token button for browser-based flow
+		new Setting(containerEl)
+			.setName('Exchange Plaid Token')
+			.setDesc('If you completed bank authentication in your browser, paste the token here to finish connection')
+			.addButton(button => button
+				.setButtonText('Exchange Token')
+				.setClass('mod-cta')
+				.setDisabled(!hasCredentials)
+				.onClick(() => {
+					new PlaidTokenModal(this.plugin.app, this.plugin).open();
+				}));
+
+		// Troubleshooting information for Plaid
+		const troubleshootingEl = containerEl.createEl('details', { cls: 'setting-item' });
+		const summaryEl = troubleshootingEl.createEl('summary', { text: '🔧 Troubleshooting Plaid Connection Issues' });
+		summaryEl.style.cursor = 'pointer';
+		summaryEl.style.fontSize = '14px';
+		summaryEl.style.fontWeight = 'bold';
+		summaryEl.style.marginBottom = '8px';
+		
+		const troubleshootingContent = troubleshootingEl.createEl('div', { cls: 'setting-item-description' });
+		troubleshootingContent.innerHTML = `
+			<p><strong>🌐 How Plaid Connection Works in Desktop Apps:</strong></p>
+			<ul>
+				<li><strong>Browser-Based Flow:</strong> Clicking "Connect Bank Account" opens your browser with Plaid Link</li>
+				<li><strong>Complete in Browser:</strong> Choose your bank and authenticate normally in the browser</li>
+				<li><strong>Copy Token:</strong> After success, copy the provided token</li>
+				<li><strong>Return to Obsidian:</strong> Use "Exchange Token" button to paste the token and complete connection</li>
+			</ul>
+			<p><strong>If you're getting "Network Error" or connection failures:</strong></p>
+			<ul>
+				<li><strong>Check Internet Connection:</strong> Ensure you have a stable internet connection</li>
+				<li><strong>Browser Extensions:</strong> Try disabling ad blockers, privacy extensions, or VPNs temporarily</li>
+				<li><strong>CORS Issues:</strong> Some browser security settings may block API calls</li>
+				<li><strong>Firewall/Network:</strong> Check if your network/firewall blocks connections to plaid.com</li>
+				<li><strong>Try Different Browser:</strong> Test in a different browser or incognito mode</li>
+				<li><strong>Use Debug Button:</strong> Click "Debug Connection" above to test network connectivity</li>
+			</ul>
+			<p><strong>For Production Environment:</strong></p>
+			<ul>
+				<li>Ensure your Plaid application is approved for Production access</li>
+				<li>Verify your domain is allowlisted in Plaid Dashboard</li>
+				<li>Check that your production credentials are correct</li>
+			</ul>
+			<p><strong>Still having issues?</strong> Check the browser console (F12) for detailed error messages.</p>
+		`;
+
+		// Calendar Integration Settings - New Unified System
+		this.renderCalendarSettings(containerEl);
+	}
+
+	private renderCalendarSettings(containerEl: HTMLElement): void {
+		containerEl.createEl('h3', { text: '📅 Calendar Integration' });
+		
+		// Google OAuth2 Setup
+		containerEl.createEl('h4', { text: '🔑 Google OAuth2 Setup' });
+		
+		new Setting(containerEl)
+			.setName('Google Client ID')
+			.setDesc('Your Google OAuth2 Client ID from Google Cloud Console')
 			.addText(text => text
-				.setPlaceholder('Enter Client ID')
+				.setPlaceholder('Enter Google Client ID')
 				.setValue(this.plugin.settings.googleCalendarClientId)
 				.onChange(async (value) => {
 					this.plugin.settings.googleCalendarClientId = value;
@@ -672,83 +1108,330 @@ class SecondBrainSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Client Secret')
-			.setDesc('Your Google Calendar OAuth2 Client Secret')
+			.setName('Google Client Secret')
+			.setDesc('Your Google OAuth2 Client Secret from Google Cloud Console')
 			.addText(text => text
-				.setPlaceholder('Enter Client Secret')
+				.setPlaceholder('Enter Google Client Secret')
 				.setValue(this.plugin.settings.googleCalendarClientSecret)
 				.onChange(async (value) => {
 					this.plugin.settings.googleCalendarClientSecret = value;
 					await this.plugin.saveSettings();
 				}));
 
-		new Setting(containerEl)
-			.setName('Redirect URI')
-			.setDesc('OAuth2 redirect URI (default: http://localhost:8080/callback)')
-			.addText(text => text
-				.setPlaceholder('http://localhost:8080/callback')
-				.setValue(this.plugin.settings.googleCalendarRedirectUri)
-				.onChange(async (value) => {
-					this.plugin.settings.googleCalendarRedirectUri = value;
-					await this.plugin.saveSettings();
-				}));
+		// Setup status
+		const hasCredentials = this.plugin.settings.googleCalendarClientId && this.plugin.settings.googleCalendarClientSecret;
+		const accountCount = this.plugin.settings.masterCalendar.googleAccounts.length;
+		
+		containerEl.createEl('div', { 
+			cls: 'setting-item-description',
+			text: `Setup Status: ${hasCredentials ? (accountCount > 0 ? `✅ ${accountCount} account(s) connected` : '⚠️ Credentials set, ready to add accounts') : '❌ Missing credentials'}\n\n💡 For desktop apps: No redirect URI needed - Google uses Out-of-Band (OOB) flow automatically.`
+		});
 
-		new Setting(containerEl)
-			.setName('Calendar ID')
-			.setDesc('Google Calendar ID (use "primary" for main calendar)')
-			.addText(text => text
-				.setPlaceholder('primary')
-				.setValue(this.plugin.settings.googleCalendarId)
-				.onChange(async (value) => {
-					this.plugin.settings.googleCalendarId = value;
-					await this.plugin.saveSettings();
-				}));
+		if (!hasCredentials) {
+			return; // Don't show additional options if credentials not set
+		}
 
-		// OAuth2 Connection Status and Actions
-		const connectionStatus = this.plugin.calendarService.getConnectionStatus();
-		const statusText = connectionStatus.configured ? 
-			(connectionStatus.authenticated ? '✅ Connected' : '⚠️ Configured but not authenticated') :
-			'❌ Not configured';
+		// Google Accounts & Calendars
+		containerEl.createEl('h4', { text: '🔐 Google Accounts & Calendars' });
 
+		// Action buttons
 		new Setting(containerEl)
-			.setName('Connection Status')
-			.setDesc(statusText)
+			.setName('Account Management')
+			.setDesc('Add new Google accounts or refresh existing ones')
 			.addButton(button => button
-				.setButtonText('Connect to Google Calendar')
-				.setDisabled(!connectionStatus.configured)
+				.setButtonText('Add Google Account')
+				.setClass('mod-cta')
+				.onClick(() => {
+					new AddGoogleAccountModal(this.plugin.app, this.plugin, () => {}).open();
+				}))
+			.addButton(button => button
+				.setButtonText('Refresh All')
+				.setClass('mod-secondary')
+				.onClick(async () => {
+					await this.plugin.masterCalendarService.refreshAllAccounts();
+					await this.plugin.saveSettings();
+					this.display(); // Refresh settings view
+				}));
+
+		// Account & Calendar Table
+		this.renderAccountTable(containerEl);
+
+		// Calendar Sync Section
+		containerEl.createEl('h4', { text: '🔄 Calendar Sync' });
+
+		// Date Range Selection
+		new Setting(containerEl)
+			.setName('Sync Date Range')
+			.setDesc('Choose the time period for calendar sync')
+			.addDropdown(dropdown => dropdown
+				.addOption('week', 'Last Week')
+				.addOption('month', 'Last Month')
+				.addOption('quarter', 'Last Quarter')
+				.addOption('custom', 'Custom Range')
+				.setValue(this.plugin.settings.masterCalendar.syncSettings.syncRange)
+				.onChange(async (value: any) => {
+					this.plugin.settings.masterCalendar.syncSettings.syncRange = value;
+					await this.plugin.saveSettings();
+					this.display(); // Refresh to show/hide custom date inputs
+				}));
+
+		// Custom date range inputs (only show if custom is selected)
+		if (this.plugin.settings.masterCalendar.syncSettings.syncRange === 'custom') {
+			new Setting(containerEl)
+				.setName('Start Date')
+				.setDesc('Start date for custom sync range')
+				.addText(text => text
+					.setPlaceholder('YYYY-MM-DD')
+					.setValue(this.plugin.settings.masterCalendar.syncSettings.customStartDate || '')
+					.onChange(async (value) => {
+						this.plugin.settings.masterCalendar.syncSettings.customStartDate = value;
+						await this.plugin.saveSettings();
+					}));
+
+			new Setting(containerEl)
+				.setName('End Date')
+				.setDesc('End date for custom sync range')
+				.addText(text => text
+					.setPlaceholder('YYYY-MM-DD')
+					.setValue(this.plugin.settings.masterCalendar.syncSettings.customEndDate || '')
+					.onChange(async (value) => {
+						this.plugin.settings.masterCalendar.syncSettings.customEndDate = value;
+						await this.plugin.saveSettings();
+					}));
+		}
+
+		// Sync Actions
+		new Setting(containerEl)
+			.setName('Sync Actions')
+			.setDesc('Sync events from enabled calendars to create event notes')
+			.addButton(button => button
+				.setButtonText('Sync All Calendars')
+				.setClass('mod-cta')
 				.onClick(async () => {
 					try {
-						const authUrl = this.plugin.calendarService.generateAuthUrl();
-						// Open the auth URL in the default browser
-						window.open(authUrl, '_blank');
-						new Notice('Please complete authentication in your browser, then use the "Exchange Auth Code" command.');
+						await this.plugin.masterCalendarService.syncAllCalendars();
+						new Notice('Calendar sync completed successfully');
 					} catch (error) {
-						new Notice(`Failed to generate auth URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+						new Notice(`Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
 					}
-				}));
-
-		new Setting(containerEl)
-			.setName('Plaid Environment')
-			.setDesc('Plaid environment (use "production" for limited production)')
-			.addDropdown(dropdown => dropdown
-				.addOption('sandbox', 'Sandbox')
-				.addOption('development', 'Development') 
-				.addOption('production', 'Production')
-				.setValue(this.plugin.settings.plaidEnvironment)
-				.onChange(async (value: any) => {
-					this.plugin.settings.plaidEnvironment = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Connect Bank Account')
-			.setDesc('Use Plaid Link to connect your bank account')
+				}))
 			.addButton(button => button
-				.setButtonText('Connect with Plaid')
-				.setDisabled(!this.plugin.settings.plaidClientId || !this.plugin.settings.plaidSecret)
-				.onClick(async () => {
-					// Initialize Plaid Link flow
-					new Notice('Plaid Link integration would be initialized here. This requires Plaid Link SDK setup.');
+				.setButtonText('View Sync Status')
+				.setClass('mod-secondary')
+				.onClick(() => {
+					const syncStatus = this.plugin.masterCalendarService.getSyncStatus();
+					if (syncStatus.length === 0) {
+						new Notice('No accounts to show status for');
+						return;
+					}
+					
+					const statusText = syncStatus.map(status => 
+						`${status.accountName}: ${status.status} (Last sync: ${status.lastSync ? new Date(status.lastSync).toLocaleString() : 'Never'})`
+					).join('\n');
+					
+					new Notice(`Sync Status:\n\n${statusText}`, 8000);
 				}));
+
+		// Event Notes Settings
+		containerEl.createEl('h4', { text: '📝 Event Notes Settings' });
+
+		new Setting(containerEl)
+			.setName('Auto-create Event Notes')
+			.setDesc('Automatically create Obsidian notes for calendar events')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.masterCalendar.eventSettings.createEventNotes)
+				.onChange(async (value) => {
+					this.plugin.settings.masterCalendar.eventSettings.createEventNotes = value;
+					await this.plugin.saveSettings();
+					this.display(); // Refresh to show/hide sub-options
+				}));
+
+		if (this.plugin.settings.masterCalendar.eventSettings.createEventNotes) {
+			new Setting(containerEl)
+				.setName('Event Notes Folder')
+				.setDesc('Folder where event notes will be created')
+				.addText(text => text
+					.setPlaceholder('events')
+					.setValue(this.plugin.settings.masterCalendar.eventSettings.eventNotesFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.masterCalendar.eventSettings.eventNotesFolder = value;
+						await this.plugin.saveSettings();
+					}));
+
+			new Setting(containerEl)
+				.setName('Note Name Format')
+				.setDesc('Template for event note filenames (use {{title}} and {{date}})')
+				.addText(text => text
+					.setPlaceholder('{{title}} - {{date}}')
+					.setValue(this.plugin.settings.masterCalendar.eventSettings.eventNoteNameFormat)
+					.onChange(async (value) => {
+						this.plugin.settings.masterCalendar.eventSettings.eventNoteNameFormat = value;
+						await this.plugin.saveSettings();
+					}));
+
+			new Setting(containerEl)
+				.setName('Use Event Templates')
+				.setDesc('Use custom templates for event notes')
+				.addToggle(toggle => toggle
+					.setValue(this.plugin.settings.masterCalendar.eventSettings.useEventTemplates)
+					.onChange(async (value) => {
+						this.plugin.settings.masterCalendar.eventSettings.useEventTemplates = value;
+						await this.plugin.saveSettings();
+						this.display(); // Refresh to show/hide template folder
+					}));
+
+			if (this.plugin.settings.masterCalendar.eventSettings.useEventTemplates) {
+				new Setting(containerEl)
+					.setName('Template Folder')
+					.setDesc('Folder containing event note templates')
+					.addText(text => text
+						.setPlaceholder('templates/events')
+						.setValue(this.plugin.settings.masterCalendar.eventSettings.templateFolder)
+						.onChange(async (value) => {
+							this.plugin.settings.masterCalendar.eventSettings.templateFolder = value;
+							await this.plugin.saveSettings();
+						}));
+			}
+		}
+
+		// Management Actions
+		containerEl.createEl('h4', { text: '🛠️ Management' });
+
+		new Setting(containerEl)
+			.setName('Reset All Data')
+			.setDesc('Clear all accounts, tokens, and calendar selections')
+			.addButton(button => button
+				.setButtonText('Clear All Data')
+				.setClass('mod-warning')
+				.onClick(async () => {
+					this.plugin.settings.masterCalendar.googleAccounts = [];
+					this.plugin.settings.masterCalendar.selectedCalendars = [];
+					await this.plugin.saveSettings();
+					this.plugin.masterCalendarService.updateSettings(this.plugin.settings);
+					new Notice('All calendar data cleared. You can now start fresh.');
+					this.display(); // Refresh
+				}));
+	}
+
+	private renderAccountTable(containerEl: HTMLElement): void {
+		const accounts = this.plugin.settings.masterCalendar.googleAccounts;
+		
+		if (accounts.length === 0) {
+			containerEl.createEl('div', { 
+				cls: 'setting-item-description',
+				text: 'No Google accounts added yet. Click "Add Google Account" to get started.'
+			});
+			return;
+		}
+
+		// Create table container
+		const tableContainer = containerEl.createEl('div', { cls: 'calendar-accounts-table' });
+		
+		// Add some basic styling
+		tableContainer.style.border = '1px solid var(--background-modifier-border)';
+		tableContainer.style.borderRadius = '4px';
+		tableContainer.style.marginBottom = '16px';
+
+		// Table header
+		const headerRow = tableContainer.createEl('div', { cls: 'table-header' });
+		headerRow.style.display = 'grid';
+		headerRow.style.gridTemplateColumns = '2fr 2fr 1fr 1fr 1fr';
+		headerRow.style.gap = '8px';
+		headerRow.style.padding = '8px';
+		headerRow.style.background = 'var(--background-secondary)';
+		headerRow.style.borderBottom = '1px solid var(--background-modifier-border)';
+		headerRow.style.fontWeight = 'bold';
+
+		headerRow.createEl('div', { text: 'Account Label' });
+		headerRow.createEl('div', { text: 'Email' });
+		headerRow.createEl('div', { text: 'Status' });
+		headerRow.createEl('div', { text: 'Calendars' });
+		headerRow.createEl('div', { text: 'Last Sync' });
+
+		// Account rows
+		for (const account of accounts) {
+			const accountRow = tableContainer.createEl('div', { cls: 'table-row' });
+			accountRow.style.display = 'grid';
+			accountRow.style.gridTemplateColumns = '2fr 2fr 1fr 1fr 1fr';
+			accountRow.style.gap = '8px';
+			accountRow.style.padding = '8px';
+			accountRow.style.borderBottom = '1px solid var(--background-modifier-border-hover)';
+
+			// Account label
+			accountRow.createEl('div', { text: account.label });
+
+			// Email
+			accountRow.createEl('div', { text: account.email || 'Not authenticated' });
+
+			// Status
+			const status = account.tokens ? '✅ Connected' : '❌ Expired';
+			accountRow.createEl('div', { text: status });
+
+			// Calendars (expandable)
+			const calendarsCell = accountRow.createEl('div');
+			const accountCalendars = this.plugin.settings.masterCalendar.selectedCalendars
+				.filter(cal => cal.accountId === account.id);
+			
+			if (accountCalendars.length > 0) {
+				const expandButton = calendarsCell.createEl('button', { 
+					text: `${accountCalendars.length} calendars ▼` 
+				});
+				expandButton.style.fontSize = '12px';
+				expandButton.style.padding = '2px 6px';
+				
+				// Calendar details container (initially hidden)
+				const calendarDetails = tableContainer.createEl('div', { cls: 'calendar-details' });
+				calendarDetails.style.display = 'none';
+				calendarDetails.style.gridColumn = '1 / -1';
+				calendarDetails.style.padding = '8px 16px';
+				calendarDetails.style.background = 'var(--background-primary-alt)';
+				calendarDetails.style.borderTop = '1px solid var(--background-modifier-border)';
+
+				// Toggle expand/collapse
+				let expanded = false;
+				expandButton.onclick = () => {
+					expanded = !expanded;
+					calendarDetails.style.display = expanded ? 'block' : 'none';
+					expandButton.textContent = `${accountCalendars.length} calendars ${expanded ? '▲' : '▼'}`;
+				};
+
+				// Render calendar list
+				for (const calendar of accountCalendars) {
+					const calendarRow = calendarDetails.createEl('div', { cls: 'calendar-row' });
+					calendarRow.style.display = 'flex';
+					calendarRow.style.alignItems = 'center';
+					calendarRow.style.gap = '8px';
+					calendarRow.style.marginBottom = '4px';
+
+					// Enable/disable toggle
+					const enableToggle = calendarRow.createEl('input', { type: 'checkbox' });
+					enableToggle.checked = calendar.enabled;
+					enableToggle.onchange = async () => {
+						calendar.enabled = enableToggle.checked;
+						await this.plugin.saveSettings();
+					};
+
+					// Calendar name
+					calendarRow.createEl('span', { text: calendar.calendarName });
+
+					// Priority indicator
+					const priorityEl = calendarRow.createEl('span', { 
+						text: `Priority: ${calendar.priority}`,
+						cls: 'calendar-priority'
+					});
+					priorityEl.style.fontSize = '11px';
+					priorityEl.style.color = 'var(--text-muted)';
+					priorityEl.style.marginLeft = 'auto';
+				}
+			} else {
+				calendarsCell.createEl('span', { text: 'No calendars' });
+			}
+
+			// Last sync
+			const lastSyncText = account.lastSync 
+				? new Date(account.lastSync).toLocaleDateString()
+				: 'Never';
+			accountRow.createEl('div', { text: lastSyncText });
+		}
 	}
 }

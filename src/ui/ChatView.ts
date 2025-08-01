@@ -1,21 +1,18 @@
 import { ItemView, WorkspaceLeaf, Notice } from 'obsidian';
 import SecondBrainPlugin from '../../main';
+import { ChatThread } from '../types';
 
 export const CHAT_VIEW_TYPE = 'second-brain-chat';
 
-interface ChatMessage {
-	role: 'user' | 'assistant';
-	content: string;
-	timestamp: string;
-}
-
 export class ChatView extends ItemView {
 	plugin: SecondBrainPlugin;
-	private messages: ChatMessage[] = [];
+	private currentThreadId: string | null = null;
 	private messagesContainer: HTMLElement;
 	private inputContainer: HTMLElement;
 	private inputElement: HTMLTextAreaElement;
 	private sendButton: HTMLButtonElement;
+	private newThreadButton: HTMLButtonElement;
+	private threadTitle: HTMLElement;
 
 	constructor(leaf: WorkspaceLeaf, plugin: SecondBrainPlugin) {
 		super(leaf);
@@ -39,9 +36,17 @@ export class ChatView extends ItemView {
 		container.empty();
 		container.addClass('chat-view-container');
 
-		// Create header
+		// Create header with thread controls
 		const header = container.createEl('div', { cls: 'chat-header' });
-		header.createEl('h3', { text: 'Second Brain Assistant', cls: 'chat-title' });
+		
+		const titleContainer = header.createEl('div', { cls: 'chat-title-container' });
+		this.threadTitle = titleContainer.createEl('h3', { text: 'New Conversation', cls: 'chat-title' });
+		
+		const buttonContainer = header.createEl('div', { cls: 'chat-header-buttons' });
+		this.newThreadButton = buttonContainer.createEl('button', {
+			text: 'New Thread',
+			cls: 'chat-new-thread-button'
+		});
 
 		// Create messages container
 		this.messagesContainer = container.createEl('div', { cls: 'chat-messages' });
@@ -65,21 +70,20 @@ export class ChatView extends ItemView {
 		// Set up event listeners
 		this.setupEventListeners();
 
-		// Load most recent chat session if available
-		await this.loadRecentSession();
-
-		// Add initial welcome message if no messages
-		if (this.messages.length === 0) {
-			this.addMessage('assistant', 'Hello! I\'m your Second Brain assistant. I can help you with organizing your notes, understanding your data, and managing your knowledge system. What would you like to know?');
-		}
-
-		this.renderMessages();
+		// Start with a new thread
+		this.startNewThread();
 	}
 
 	private setupEventListeners(): void {
 		// Send button click
 		this.sendButton.addEventListener('click', () => {
 			this.handleSend();
+		});
+
+		// New thread button click
+		this.newThreadButton.addEventListener('click', () => {
+			console.log('🖱️ ChatView: New Thread button clicked');
+			this.startNewThread();
 		});
 
 		// Enter key to send (Shift+Enter for new line)
@@ -97,6 +101,52 @@ export class ChatView extends ItemView {
 		});
 	}
 
+	private startNewThread(): void {
+		console.log('🆕 ChatView: Starting new thread...');
+		
+		// End current thread if exists and process it for suggestions
+		if (this.currentThreadId) {
+			console.log(`🔄 ChatView: Ending current thread: ${this.currentThreadId}`);
+			this.endCurrentThread();
+		}
+
+		// Start new thread through the intelligence broker service
+		console.log('🚀 ChatView: Calling intelligenceBrokerService.startNewThread()');
+		this.currentThreadId = this.plugin.intelligenceBrokerService.startNewThread();
+		console.log(`✅ ChatView: New thread started with ID: ${this.currentThreadId}`);
+		
+		// Update UI
+		this.threadTitle.textContent = `Thread ${new Date().toLocaleTimeString()}`;
+		this.messagesContainer.empty();
+		
+		// Add welcome message for new thread
+		this.addWelcomeMessage();
+		console.log('💬 ChatView: Welcome message added, UI updated');
+	}
+
+	private async endCurrentThread(): Promise<void> {
+		if (!this.currentThreadId) return;
+
+		try {
+			// End thread and get suggestions
+			const suggestion = await this.plugin.intelligenceBrokerService.endCurrentThread();
+			
+			if (suggestion) {
+				// Show notification about suggestions being created
+				new Notice('Chat conversation processed! Check the suggestion sidebar for potential notes.');
+				
+				// Add suggestion to the management system if available
+				if (this.plugin.suggestionManagementService) {
+					await this.plugin.suggestionManagementService.addSuggestion(suggestion);
+				}
+			}
+		} catch (error) {
+			console.error('Error ending thread:', error);
+		}
+
+		this.currentThreadId = null;
+	}
+
 	private async handleSend(): Promise<void> {
 		const message = this.inputElement.value.trim();
 		if (!message) return;
@@ -105,10 +155,6 @@ export class ChatView extends ItemView {
 		this.inputElement.value = '';
 		this.inputElement.style.height = 'auto';
 
-		// Add user message
-		this.addMessage('user', message);
-		this.renderMessages();
-
 		// Show loading state
 		this.sendButton.disabled = true;
 		this.sendButton.textContent = 'Thinking...';
@@ -116,24 +162,23 @@ export class ChatView extends ItemView {
 		try {
 			// Check if LLM is configured
 			if (!this.plugin.settings.llmApiKey) {
-				this.addMessage('assistant', 'I need an LLM API key to respond. Please configure your LLM settings in the plugin settings.');
-				this.renderMessages();
+				this.addErrorMessage('I need an LLM API key to respond. Please configure your LLM settings in the plugin settings.');
 				return;
 			}
 
-			// Get response from LLM service
-			const response = await this.plugin.llmService.chat(message);
-			this.addMessage('assistant', response);
-			this.renderMessages();
-
-			// Save session after successful exchange
-			await this.saveSession();
+			// Process message through intelligence broker service
+			const result = await this.plugin.intelligenceBrokerService.processChatMessage(message);
+			
+			// Update current thread ID in case it changed
+			this.currentThreadId = result.threadId;
+			
+			// Render the updated thread
+			this.renderCurrentThread();
 
 		} catch (error) {
 			console.error('Chat error:', error);
 			const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
-			this.addMessage('assistant', `Sorry, I encountered an error: ${errorMsg}`);
-			this.renderMessages();
+			this.addErrorMessage(`Sorry, I encountered an error: ${errorMsg}`);
 		} finally {
 			// Reset button state
 			this.sendButton.disabled = false;
@@ -141,164 +186,77 @@ export class ChatView extends ItemView {
 		}
 	}
 
-	private addMessage(role: 'user' | 'assistant', content: string): void {
-		this.messages.push({
-			role,
-			content,
-			timestamp: new Date().toISOString()
-		});
+	private addWelcomeMessage(): void {
+		const messageEl = this.messagesContainer.createEl('div', { cls: 'chat-message assistant welcome' });
+		const contentEl = messageEl.createEl('div', { cls: 'chat-message-content' });
+		contentEl.textContent = 'Hello! I\'m your Second Brain assistant. I can help you with organizing your notes, understanding your data, and managing your knowledge system. What would you like to know?';
+		
+		const timeEl = messageEl.createEl('div', { cls: 'chat-message-time' });
+		timeEl.textContent = new Date().toLocaleTimeString();
+		
+		this.scrollToBottom();
 	}
 
-	private renderMessages(): void {
+	private addErrorMessage(content: string): void {
+		const messageEl = this.messagesContainer.createEl('div', { cls: 'chat-message assistant error' });
+		const contentEl = messageEl.createEl('div', { cls: 'chat-message-content' });
+		contentEl.textContent = content;
+		
+		const timeEl = messageEl.createEl('div', { cls: 'chat-message-time' });
+		timeEl.textContent = new Date().toLocaleTimeString();
+		
+		this.scrollToBottom();
+	}
+
+	private renderCurrentThread(): void {
 		this.messagesContainer.empty();
-
-		for (const message of this.messages) {
-			const messageEl = this.messagesContainer.createEl('div', {
-				cls: `chat-message chat-message-${message.role}`
-			});
-
-			const avatarEl = messageEl.createEl('div', { cls: 'chat-avatar' });
-			avatarEl.textContent = message.role === 'user' ? '👤' : '🤖';
-
-			const contentEl = messageEl.createEl('div', { cls: 'chat-content' });
-			
-			const textEl = contentEl.createEl('div', { cls: 'chat-text' });
-			textEl.textContent = message.content;
-
-			const timeEl = contentEl.createEl('div', { cls: 'chat-time' });
-			timeEl.textContent = new Date(message.timestamp).toLocaleTimeString();
+		
+		if (!this.currentThreadId) {
+			this.addWelcomeMessage();
+			return;
 		}
 
-		// Scroll to bottom
+		const thread = this.plugin.intelligenceBrokerService.getCurrentThread();
+		if (!thread) {
+			this.addWelcomeMessage();
+			return;
+		}
+
+		// Update thread title
+		this.threadTitle.textContent = thread.title;
+
+		// If no messages yet, show welcome
+		if (thread.messages.length === 0) {
+			this.addWelcomeMessage();
+			return;
+		}
+
+		// Render all messages in the thread
+		for (const message of thread.messages) {
+			this.renderMessage(message);
+		}
+		
+		this.scrollToBottom();
+	}
+
+	private renderMessage(message: { role: 'user' | 'assistant'; content: string; timestamp: string }): void {
+		const messageEl = this.messagesContainer.createEl('div', { 
+			cls: `chat-message ${message.role}` 
+		});
+		
+		const contentEl = messageEl.createEl('div', { cls: 'chat-message-content' });
+		contentEl.textContent = message.content;
+		
+		const timeEl = messageEl.createEl('div', { cls: 'chat-message-time' });
+		timeEl.textContent = new Date(message.timestamp).toLocaleTimeString();
+	}
+
+	private scrollToBottom(): void {
 		this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
 	}
 
-	private async saveSession(): Promise<void> {
-		try {
-			// Create chats folder if it doesn't exist
-			const chatsFolder = 'Second Brain/Chats';
-			const folderExists = await this.app.vault.adapter.exists(chatsFolder);
-			if (!folderExists) {
-				await this.app.vault.createFolder(chatsFolder);
-			}
-
-			// Generate filename with timestamp
-			const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-			const filename = `${chatsFolder}/chat-${timestamp}.md`;
-
-			// Convert messages to markdown
-			const markdown = this.messagesToMarkdown();
-
-			// Save to vault
-			await this.app.vault.create(filename, markdown);
-
-		} catch (error) {
-			console.error('Failed to save chat session:', error);
-			// Don't show error to user as this is background operation
-		}
-	}
-
-	private messagesToMarkdown(): string {
-		const lines: string[] = [];
-		lines.push('# Second Brain Chat Session');
-		lines.push('');
-		lines.push(`**Date:** ${new Date().toLocaleDateString()}`);
-		lines.push(`**Time:** ${new Date().toLocaleTimeString()}`);
-		lines.push('');
-
-		for (const message of this.messages) {
-			const role = message.role === 'user' ? '**You**' : '**Assistant**';
-			const time = new Date(message.timestamp).toLocaleTimeString();
-			
-			lines.push(`## ${role} (${time})`);
-			lines.push('');
-			lines.push(message.content);
-			lines.push('');
-		}
-
-		return lines.join('\n');
-	}
-
-	private async loadRecentSession(): Promise<void> {
-		try {
-			const chatsFolder = 'Second Brain/Chats';
-			const folderExists = await this.app.vault.adapter.exists(chatsFolder);
-			if (!folderExists) return;
-
-			// Get all chat files
-			const files = this.app.vault.getMarkdownFiles()
-				.filter(file => file.path.startsWith(chatsFolder) && file.path.includes('chat-'))
-				.sort((a, b) => b.stat.mtime - a.stat.mtime);
-
-			if (files.length === 0) return;
-
-			// Load the most recent file
-			const recentFile = files[0];
-			const content = await this.app.vault.read(recentFile);
-			
-			// Parse messages from markdown (simplified parsing)
-			this.parseMarkdownToMessages(content);
-
-		} catch (error) {
-			console.error('Failed to load recent session:', error);
-			// Continue with empty session
-		}
-	}
-
-	private parseMarkdownToMessages(markdown: string): void {
-		// Simple parsing - look for ## **You** and ## **Assistant** headers
-		const lines = markdown.split('\n');
-		let currentRole: 'user' | 'assistant' | null = null;
-		let currentContent: string[] = [];
-		let currentTimestamp = new Date().toISOString();
-
-		for (const line of lines) {
-			if (line.startsWith('## **You**')) {
-				// Save previous message if exists
-				if (currentRole && currentContent.length > 0) {
-					this.messages.push({
-						role: currentRole,
-						content: currentContent.join('\n').trim(),
-						timestamp: currentTimestamp
-					});
-				}
-				currentRole = 'user';
-				currentContent = [];
-			} else if (line.startsWith('## **Assistant**')) {
-				// Save previous message if exists
-				if (currentRole && currentContent.length > 0) {
-					this.messages.push({
-						role: currentRole,
-						content: currentContent.join('\n').trim(),
-						timestamp: currentTimestamp
-					});
-				}
-				currentRole = 'assistant';
-				currentContent = [];
-			} else if (currentRole && line.trim() !== '' && !line.startsWith('#') && !line.startsWith('**Date:**') && !line.startsWith('**Time:**')) {
-				currentContent.push(line);
-			}
-		}
-
-		// Save last message
-		if (currentRole && currentContent.length > 0) {
-			this.messages.push({
-				role: currentRole,
-				content: currentContent.join('\n').trim(),
-				timestamp: currentTimestamp
-			});
-		}
-
-		// Limit to last 20 messages to avoid overwhelming the UI
-		if (this.messages.length > 20) {
-			this.messages = this.messages.slice(-20);
-		}
-	}
-
 	async onClose(): Promise<void> {
-		// Save session when closing
-		if (this.messages.length > 0) {
-			await this.saveSession();
-		}
+		// End current thread when view closes
+		await this.endCurrentThread();
 	}
 }

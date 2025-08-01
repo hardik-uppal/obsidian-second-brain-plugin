@@ -8,13 +8,21 @@
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
-	"keywords": ["obsidian", "plugin", "zettelkasten", "second-brain", "transactions", "calendar", "tasks"],
+	"keywords": [
+		"obsidian",
+		"plugin",
+		"zettelkasten",
+		"second-brain",
+		"transactions",
+		"calendar",
+		"tasks"
+	],
 	"author": "Second Brain Team",
 	"license": "MIT",
 	"dependencies": {
-		"plaid": "^10.0.0",
+		"axios": "^1.4.0",
 		"googleapis": "^118.0.0",
-		"axios": "^1.4.0"
+		"plaid": "^10.0.0"
 	},
 	"devDependencies": {
 		"@types/node": "^16.11.6",

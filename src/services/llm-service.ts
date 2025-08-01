@@ -1,12 +1,381 @@
-import { PluginSettings, LLMRequest, LLMResponse, ParsedData } from '../types';
+import { 
+	PluginSettings, 
+	LLMRequest, 
+	LLMResponse, 
+	ParsedData, 
+	LLMSuggestion, 
+	CalendarEvent, 
+	Transaction,
+	ChatThread,
+	ChatMessage,
+	ChatThreadSummary
+} from '../types';
+import { App, TFile } from 'obsidian';
 import axios from 'axios';
 
-export class LLMService {
+/**
+ * Enhanced LLM Service - Handles chat threads, parsing, and suggestions
+ * Manages conversation threads and converts them to actionable suggestions
+ */
+export class IntelligenceBrokerService {
 	private settings: PluginSettings;
+	private activeThreads: Map<string, ChatThread> = new Map();
+	private currentThreadId: string | null = null;
+	private app: App; // Add app reference for file operations
 
-	constructor(settings: PluginSettings) {
+	constructor(app: App, settings: PluginSettings) {
+		this.app = app;
 		this.settings = settings;
 	}
+
+	// ===========================================
+	// CHAT THREAD MANAGEMENT
+	// ===========================================
+
+	/**
+	 * Start a new chat thread
+	 */
+	startNewThread(title?: string): string {
+		console.log('🆕 IntelligenceBrokerService: Starting new thread...');
+		
+		// End current thread if exists
+		if (this.currentThreadId) {
+			console.log(`🔄 IntelligenceBrokerService: Ending current thread: ${this.currentThreadId}`);
+			this.endCurrentThread();
+		}
+
+		const threadId = this.generateThreadId();
+		console.log(`🎲 IntelligenceBrokerService: Generated thread ID: ${threadId}`);
+		
+		const thread: ChatThread = {
+			id: threadId,
+			title: title || `Chat ${new Date().toLocaleString()}`,
+			messages: [],
+			startTime: new Date().toISOString(),
+			status: 'active',
+			totalMessages: 0,
+			lastActivity: new Date().toISOString()
+		};
+
+		console.log(`📝 IntelligenceBrokerService: Created thread object:`, thread);
+		
+		this.activeThreads.set(threadId, thread);
+		this.currentThreadId = threadId;
+		
+		console.log(`💾 IntelligenceBrokerService: Thread stored in memory. Total active threads: ${this.activeThreads.size}`);
+		console.log(`🎯 IntelligenceBrokerService: Current thread ID set to: ${this.currentThreadId}`);
+		
+		return threadId;
+	}
+
+	/**
+	 * End the current thread and process it for suggestions
+	 */
+	async endCurrentThread(): Promise<LLMSuggestion | null> {
+		if (!this.currentThreadId) {
+			console.log('🚫 IntelligenceBrokerService: No current thread to end');
+			return null;
+		}
+
+		const thread = this.activeThreads.get(this.currentThreadId);
+		if (!thread) {
+			console.log('🚫 IntelligenceBrokerService: Thread not found in active threads');
+			return null;
+		}
+
+		console.log(`🏁 IntelligenceBrokerService: Ending thread ${thread.id} with ${thread.messages.length} messages`);
+
+		// Mark thread as ended
+		thread.status = 'ended';
+		thread.endTime = new Date().toISOString();
+
+		// Save thread as a chat note if it has any messages
+		if (thread.messages.length > 0) {
+			console.log('💾 IntelligenceBrokerService: Saving thread as chat note...');
+			await this.saveChatAsNote(thread);
+		}
+
+		// Only process threads with meaningful conversation (more than 2 messages) for suggestions
+		if (thread.messages.length < 3) {
+			console.log('📝 IntelligenceBrokerService: Thread too short for suggestions, skipping suggestion processing');
+			this.currentThreadId = null;
+			return null;
+		}
+
+		try {
+			// Generate suggestions from the thread
+			console.log('🔄 IntelligenceBrokerService: Processing thread for suggestions...');
+			const suggestion = await this.processThreadForSuggestions(thread);
+			this.currentThreadId = null;
+			
+			console.log('✅ IntelligenceBrokerService: Thread processed successfully');
+			return suggestion;
+		} catch (error) {
+			console.error('❌ Failed to process thread for suggestions:', error);
+			this.currentThreadId = null;
+			return null;
+		}
+	}
+
+	/**
+	 * Add a message to the current thread and get AI response
+	 */
+	async processChatMessage(message: string): Promise<{ response: string; threadId: string }> {
+		console.log('💬 IntelligenceBrokerService: Processing chat message...');
+		
+		// Start new thread if none exists
+		if (!this.currentThreadId) {
+			console.log('🆕 IntelligenceBrokerService: No current thread, starting new one');
+			this.startNewThread();
+		}
+
+		const thread = this.activeThreads.get(this.currentThreadId!);
+		if (!thread) {
+			throw new Error('No active thread found');
+		}
+
+		console.log(`📝 IntelligenceBrokerService: Adding user message to thread ${thread.id}`);
+
+		// Add user message to thread
+		const userMessage: ChatMessage = {
+			id: this.generateMessageId(),
+			role: 'user',
+			content: message,
+			timestamp: new Date().toISOString()
+		};
+		thread.messages.push(userMessage);
+
+		// Get AI response
+		console.log('🤖 IntelligenceBrokerService: Generating AI response...');
+		const aiResponse = await this.generateAIResponse(message, thread);
+
+		// Add AI response to thread
+		const assistantMessage: ChatMessage = {
+			id: this.generateMessageId(),
+			role: 'assistant',
+			content: aiResponse,
+			timestamp: new Date().toISOString()
+		};
+		thread.messages.push(assistantMessage);
+
+		// Update thread metadata
+		thread.totalMessages = thread.messages.length;
+		thread.lastActivity = new Date().toISOString();
+
+		console.log(`✅ IntelligenceBrokerService: Chat message processed. Thread now has ${thread.totalMessages} messages`);
+
+		return {
+			response: aiResponse,
+			threadId: this.currentThreadId!
+		};
+	}
+
+	/**
+	 * Get current active thread
+	 */
+	getCurrentThread(): ChatThread | null {
+		if (!this.currentThreadId) {
+			return null;
+		}
+		return this.activeThreads.get(this.currentThreadId) || null;
+	}
+
+	/**
+	 * Get thread by ID
+	 */
+	getThread(threadId: string): ChatThread | null {
+		return this.activeThreads.get(threadId) || null;
+	}
+
+	/**
+	 * List all threads
+	 */
+	getAllThreads(): ChatThread[] {
+		return Array.from(this.activeThreads.values());
+	}
+
+	/**
+	 * Process a completed thread for suggestions
+	 */
+	private async processThreadForSuggestions(thread: ChatThread): Promise<LLMSuggestion> {
+		const summary = await this.generateThreadSummary(thread);
+		
+		return {
+			id: this.generateSuggestionId(),
+			type: 'chat-thread',
+			sourceId: thread.id,
+			timestamp: new Date().toISOString(),
+			status: 'pending',
+			priority: summary.confidence > 0.8 ? 'high' : summary.confidence > 0.5 ? 'medium' : 'low',
+			originalData: {
+				title: thread.title,
+				type: 'chat-thread',
+				summary: `Conversation with ${thread.totalMessages} messages about: ${summary.keyTopics.join(', ')}`,
+				threadData: thread
+			},
+			suggestions: {
+				tags: summary.keyTopics,
+				actionItems: summary.actionItems,
+				insights: summary.insights.join('\n'),
+				summary: `## ${summary.suggestedTitle}\n\n${this.formatThreadAsNote(thread, summary)}`,
+				noteContent: this.formatThreadAsNote(thread, summary),
+				noteType: summary.noteType,
+				metadata: {
+					threadId: thread.id,
+					messageCount: thread.totalMessages,
+					duration: this.calculateThreadDuration(thread),
+					shouldCreateNote: summary.shouldCreateNote,
+					suggestedNoteType: summary.noteType
+				}
+			},
+			confidence: summary.confidence,
+			targetNotePath: `notes/${this.sanitizeFileName(summary.suggestedTitle)}_${new Date().toISOString().split('T')[0]}.md`
+		};
+	}
+
+	/**
+	 * Generate summary and analysis of a chat thread
+	 */
+	private async generateThreadSummary(thread: ChatThread): Promise<ChatThreadSummary> {
+		const prompt = this.buildThreadSummaryPrompt(thread);
+		const request: LLMRequest = {
+			prompt,
+			data: { thread },
+			type: 'suggestion'
+		};
+
+		const response = await this.callLLM(request);
+		if (!response.success) {
+			// Return default summary if LLM fails
+			return {
+				threadId: thread.id,
+				keyTopics: ['conversation'],
+				actionItems: [],
+				decisions: [],
+				insights: [],
+				suggestedTitle: thread.title,
+				shouldCreateNote: thread.messages.length > 5,
+				noteType: 'general',
+				confidence: 0.5
+			};
+		}
+
+		return response.data as ChatThreadSummary;
+	}
+
+	/**
+	 * Format thread as a note
+	 */
+	private formatThreadAsNote(thread: ChatThread, summary: ChatThreadSummary): string {
+		let content = `**Date:** ${new Date(thread.startTime).toLocaleDateString()}\n`;
+		content += `**Duration:** ${this.calculateThreadDuration(thread)}\n`;
+		content += `**Messages:** ${thread.totalMessages}\n\n`;
+
+		if (summary.keyTopics.length > 0) {
+			content += `## Key Topics\n${summary.keyTopics.map(topic => `- ${topic}`).join('\n')}\n\n`;
+		}
+
+		if (summary.insights.length > 0) {
+			content += `## Key Insights\n${summary.insights.map(insight => `- ${insight}`).join('\n')}\n\n`;
+		}
+
+		if (summary.actionItems.length > 0) {
+			content += `## Action Items\n${summary.actionItems.map(item => `- [ ] ${item}`).join('\n')}\n\n`;
+		}
+
+		if (summary.decisions.length > 0) {
+			content += `## Decisions Made\n${summary.decisions.map(decision => `- ${decision}`).join('\n')}\n\n`;
+		}
+
+		content += `## Conversation\n\n`;
+		for (const message of thread.messages) {
+			const time = new Date(message.timestamp).toLocaleTimeString();
+			content += `**${message.role === 'user' ? 'You' : 'Assistant'}** (${time}):\n${message.content}\n\n`;
+		}
+
+		return content;
+	}
+
+	// ===========================================
+	// EVENT ENHANCEMENT FUNCTIONALITY
+	// ===========================================
+
+	/**
+	 * Generate enhanced suggestions for calendar events
+	 */
+	async generateEventEnhancements(event: CalendarEvent): Promise<LLMSuggestion> {
+		const prompt = this.buildEventEnhancementPrompt(event);
+		const request: LLMRequest = {
+			prompt,
+			data: event,
+			type: 'event'
+		};
+
+		const response = await this.callLLM(request);
+		if (!response.success) {
+			throw new Error(`Event enhancement failed: ${response.error}`);
+		}
+
+		return this.convertEventResponseToSuggestion(event, response.data);
+	}
+
+	/**
+	 * Batch process events for enhancements
+	 */
+	async generateBatchEventEnhancements(events: CalendarEvent[]): Promise<LLMSuggestion[]> {
+		const suggestions: LLMSuggestion[] = [];
+		
+		for (const event of events) {
+			try {
+				const suggestion = await this.generateEventEnhancements(event);
+				suggestions.push(suggestion);
+			} catch (error) {
+				console.error(`Failed to enhance event ${event.title}:`, error);
+				// Create a minimal suggestion to track the failure
+				suggestions.push({
+					id: this.generateSuggestionId(),
+					type: 'calendar-event',
+					sourceId: event.id,
+					timestamp: new Date().toISOString(),
+					status: 'rejected',
+					priority: 'low',
+					originalData: {
+						title: event.title,
+						type: 'calendar-event',
+						summary: `${event.title} on ${event.date}`
+					},
+					suggestions: {},
+					confidence: 0,
+					targetNotePath: `events/${this.sanitizeFileName(event.title)}_${event.date}.md`
+				});
+			}
+		}
+
+		return suggestions;
+	}
+
+	/**
+	 * Generate transaction enhancements
+	 */
+	async generateTransactionEnhancements(transaction: Transaction): Promise<LLMSuggestion> {
+		const prompt = this.buildTransactionEnhancementPrompt(transaction);
+		const request: LLMRequest = {
+			prompt,
+			data: transaction,
+			type: 'transaction'
+		};
+
+		const response = await this.callLLM(request);
+		if (!response.success) {
+			throw new Error(`Transaction enhancement failed: ${response.error}`);
+		}
+
+		return this.convertTransactionResponseToSuggestion(transaction, response.data);
+	}
+
+	// ===========================================
+	// EXISTING PARSING FUNCTIONALITY (Updated)
+	// ===========================================
 
 	async parseTransaction(transactionData: any): Promise<ParsedData> {
 		const prompt = this.buildTransactionPrompt(transactionData);
@@ -311,37 +680,451 @@ Return only valid JSON, no additional text.
 `;
 	}
 
-	async chat(message: string): Promise<string> {
+	/**
+	 * Build thread summary prompt
+	 */
+	private buildThreadSummaryPrompt(thread: ChatThread): string {
+		const conversation = thread.messages.map(msg => 
+			`${msg.role}: ${msg.content}`
+		).join('\n');
+
+		return `Analyze this chat conversation and provide a comprehensive summary for potential note creation.
+
+Conversation Details:
+- Thread ID: ${thread.id}
+- Duration: ${this.calculateThreadDuration(thread)}
+- Total Messages: ${thread.totalMessages}
+- Started: ${new Date(thread.startTime).toLocaleString()}
+
+Conversation:
+${conversation}
+
+Please analyze this conversation and return JSON with the following structure:
+{
+  "threadId": "${thread.id}",
+  "keyTopics": ["topic1", "topic2", "topic3"],
+  "actionItems": ["action item 1", "action item 2"],
+  "decisions": ["decision 1", "decision 2"],
+  "insights": ["insight 1", "insight 2"],
+  "suggestedTitle": "Suggested Note Title",
+  "shouldCreateNote": true,
+  "noteType": "meeting-notes|brainstorm|decision-log|action-plan|general",
+  "confidence": 0.85
+}
+
+Focus on:
+1. Identifying 3-5 key topics discussed
+2. Extracting concrete action items mentioned
+3. Noting any decisions made
+4. Capturing important insights or conclusions
+5. Suggesting an appropriate title for a note
+6. Determining if this conversation warrants creating a note (true for substantial conversations)
+7. Classifying the type of note this would be
+8. Providing a confidence score (0-1) for the analysis quality
+
+Return only valid JSON, no additional text.`;
+	}
+
+	// ===========================================
+	// HELPER METHODS
+	// ===========================================
+
+	/**
+	 * Generate unique thread ID
+	 */
+	private generateThreadId(): string {
+		return `thread_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+	}
+
+	/**
+	 * Generate unique message ID
+	 */
+	private generateMessageId(): string {
+		return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+	}
+
+	/**
+	 * Generate unique suggestion ID
+	 */
+	private generateSuggestionId(): string {
+		return `sug_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+	}
+
+	/**
+	 * Calculate thread duration in human readable format
+	 */
+	private calculateThreadDuration(thread: ChatThread): string {
+		const start = new Date(thread.startTime);
+		const end = thread.endTime ? new Date(thread.endTime) : new Date();
+		const durationMs = end.getTime() - start.getTime();
+		
+		const minutes = Math.floor(durationMs / 60000);
+		const seconds = Math.floor((durationMs % 60000) / 1000);
+		
+		if (minutes > 0) {
+			return `${minutes}m ${seconds}s`;
+		}
+		return `${seconds}s`;
+	}
+
+	/**
+	 * Generate AI response for chat message
+	 */
+	private async generateAIResponse(message: string, thread: ChatThread): Promise<string> {
 		try {
-			// For chat, we call the LLM directly without expecting JSON
+			// Build context from recent messages
+			const recentMessages = thread.messages.slice(-10); // Last 10 messages for context
+			const conversationHistory = recentMessages.map(msg => ({
+				role: msg.role,
+				content: msg.content
+			}));
+
+			const prompt = this.buildChatPrompt(message, { conversationHistory });
+			
 			switch (this.settings.llmProvider) {
 				case 'openai':
-					return await this.callOpenAIChat(message);
+					return await this.callOpenAIChat(message, conversationHistory);
 				case 'anthropic':
-					return await this.callAnthropicChat(message);
+					return await this.callAnthropicChat(message, conversationHistory);
 				case 'custom':
-					return await this.callCustomChat(message);
+					return await this.callCustomChat(message, conversationHistory);
 				default:
 					throw new Error(`Unsupported LLM provider: ${this.settings.llmProvider}`);
 			}
 		} catch (error) {
-			throw new Error(`Chat failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+			console.error('Failed to generate AI response:', error);
+			return "I apologize, but I'm having trouble processing your message right now. Please try again.";
 		}
 	}
 
-	private async callOpenAIChat(message: string): Promise<string> {
+	/**
+	 * Sanitize filename for file paths
+	 */
+	private sanitizeFileName(input: string): string {
+		return input
+			.replace(/[<>:"/\\|?*]/g, '-')
+			.replace(/\s+/g, '_')
+			.trim()
+			.substring(0, 50);
+	}
+
+	/**
+	 * Convert LLM response to suggestions format
+	 */
+	private convertToSuggestions(responseData: any, sourceType: string): LLMSuggestion[] {
+		const suggestions: LLMSuggestion[] = [];
+		
+		if (responseData.suggestions && Array.isArray(responseData.suggestions)) {
+			for (const item of responseData.suggestions) {
+				suggestions.push({
+					id: this.generateSuggestionId(),
+					type: this.mapSourceTypeToSuggestionType(sourceType),
+					sourceId: item.sourceId || 'chat',
+					timestamp: new Date().toISOString(),
+					status: 'pending',
+					priority: item.priority || 'medium',
+					originalData: {
+						title: item.title || 'Chat Suggestion',
+						type: sourceType,
+						summary: item.summary || ''
+					},
+					suggestions: {
+						tags: item.tags,
+						actionItems: item.actionItems,
+						relationships: item.relationships,
+						insights: item.insights
+					},
+					confidence: item.confidence || 0.7,
+					targetNotePath: item.targetPath
+				});
+			}
+		}
+		
+		return suggestions;
+	}
+
+	/**
+	 * Convert event response to suggestion
+	 */
+	private convertEventResponseToSuggestion(event: CalendarEvent, responseData: any): LLMSuggestion {
+		return {
+			id: this.generateSuggestionId(),
+			type: 'calendar-event',
+			sourceId: event.id,
+			timestamp: new Date().toISOString(),
+			status: 'pending',
+			priority: responseData.priority || 'medium',
+			originalData: {
+				title: event.title,
+				type: 'calendar-event',
+				summary: `${event.title} on ${event.date} at ${event.startTime}`
+			},
+			suggestions: {
+				tags: responseData.tags || [],
+				categories: responseData.categories || [],
+				actionItems: responseData.actionItems || [],
+				preparationItems: responseData.preparationItems || [],
+				relationships: responseData.relationships || [],
+				insights: responseData.insights,
+				summary: responseData.summary,
+				metadata: responseData.metadata || {}
+			},
+			confidence: responseData.confidence || 0.8,
+			targetNotePath: `events/${this.sanitizeFileName(event.title)}_${event.date}.md`
+		};
+	}
+
+	/**
+	 * Convert transaction response to suggestion
+	 */
+	private convertTransactionResponseToSuggestion(transaction: Transaction, responseData: any): LLMSuggestion {
+		return {
+			id: this.generateSuggestionId(),
+			type: 'transaction',
+			sourceId: transaction.id,
+			timestamp: new Date().toISOString(),
+			status: 'pending',
+			priority: responseData.priority || 'medium',
+			originalData: {
+				title: `${transaction.merchant} - $${transaction.amount}`,
+				type: 'transaction',
+				summary: `${transaction.description} on ${transaction.date}`
+			},
+			suggestions: {
+				tags: responseData.tags || [],
+				categories: responseData.categories || [],
+				actionItems: responseData.actionItems || [],
+				relationships: responseData.relationships || [],
+				insights: responseData.insights,
+				metadata: responseData.metadata || {}
+			},
+			confidence: responseData.confidence || 0.7,
+			targetNotePath: `transactions/${this.sanitizeFileName(transaction.merchant)}_${transaction.date}.md`
+		};
+	}
+
+	/**
+	 * Map source type to suggestion type
+	 */
+	private mapSourceTypeToSuggestionType(sourceType: string): LLMSuggestion['type'] {
+		switch (sourceType) {
+			case 'chat-conversation':
+				return 'note-enhancement';
+			case 'calendar-event':
+				return 'calendar-event';
+			case 'transaction':
+				return 'transaction';
+			default:
+				return 'note-enhancement';
+		}
+	}
+
+	// ===========================================
+	// PROMPT BUILDERS
+	// ===========================================
+
+	/**
+	 * Build chat prompt with context
+	 */
+	private buildChatPrompt(
+		message: string, 
+		context?: { 
+			relatedNotes?: string[];
+			conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
+		}
+	): string {
+		let prompt = `You are an AI assistant helping with personal knowledge management in Obsidian.
+
+User message: "${message}"
+
+`;
+
+		if (context?.conversationHistory?.length) {
+			prompt += `\nConversation history:\n`;
+			context.conversationHistory.slice(-5).forEach(msg => {
+				prompt += `${msg.role}: ${msg.content}\n`;
+			});
+		}
+
+		if (context?.relatedNotes?.length) {
+			prompt += `\nRelated notes in vault:\n`;
+			context.relatedNotes.forEach(note => {
+				prompt += `- ${note}\n`;
+			});
+		}
+
+		prompt += `\nProvide a helpful response. If this conversation could lead to actionable items or new insights, include them in a "suggestions" field in your JSON response.
+
+Response format:
+{
+  "content": "your response here",
+  "suggestions": [
+    {
+      "title": "suggestion title",
+      "summary": "brief description",
+      "actionItems": ["item 1", "item 2"],
+      "tags": ["tag1", "tag2"],
+      "priority": "high|medium|low",
+      "confidence": 0.8
+    }
+  ]
+}`;
+
+		return prompt;
+	}
+
+	/**
+	 * Build chat end suggestions prompt
+	 */
+	private buildChatEndSuggestionsPrompt(
+		conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
+		relatedNotes: string[]
+	): string {
+		let prompt = `Analyze this conversation and suggest actionable items, notes to create, or connections to make.
+
+Conversation:
+${conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
+
+`;
+
+		if (relatedNotes.length) {
+			prompt += `Existing related notes: ${relatedNotes.join(', ')}\n\n`;
+		}
+
+		prompt += `Based on this conversation, suggest:
+1. Action items that should be tracked
+2. New notes that should be created
+3. Tags that would be useful
+4. Connections to existing notes
+5. Key insights to remember
+
+Return suggestions as JSON array:
+{
+  "suggestions": [
+    {
+      "title": "suggestion title",
+      "summary": "what this suggestion does",
+      "actionItems": ["specific action 1", "specific action 2"],
+      "tags": ["relevant", "tags"],
+      "relationships": ["related note 1", "related note 2"],
+      "insights": "key insight to remember",
+      "priority": "high|medium|low",
+      "confidence": 0.8,
+      "targetPath": "suggested/note/path.md"
+    }
+  ]
+}`;
+
+		return prompt;
+	}
+
+	/**
+	 * Build event enhancement prompt
+	 */
+	private buildEventEnhancementPrompt(event: CalendarEvent): string {
+		return `Analyze this calendar event and suggest enhancements for better organization and preparation:
+
+Event Details:
+- Title: ${event.title}
+- Date: ${event.date}
+- Time: ${event.startTime} - ${event.endTime}
+- Location: ${event.location || 'No location'}
+- Description: ${event.description || 'No description'}
+- Attendees: ${event.attendees.join(', ') || 'No attendees'}
+- Current tags: ${event.tags.join(', ') || 'No tags'}
+
+Please suggest:
+1. Relevant tags (3-5 tags maximum)
+2. Event category/type
+3. Preparation items (3-5 items)
+4. Potential action items
+5. Related topics/projects that might connect
+6. Priority level assessment
+7. Key insights about this event
+
+Return as JSON:
+{
+  "tags": ["tag1", "tag2", "tag3"],
+  "categories": ["category"],
+  "preparationItems": ["prep item 1", "prep item 2"],
+  "actionItems": ["action 1", "action 2"],
+  "relationships": ["related topic 1", "related topic 2"],
+  "insights": "key insights about this event",
+  "summary": "brief summary of the event purpose",
+  "priority": "high|medium|low",
+  "confidence": 0.85,
+  "metadata": {
+    "eventType": "meeting|appointment|personal|work",
+    "estimatedPrepTime": "15 minutes",
+    "followUpRequired": true
+  }
+}`;
+	}
+
+	/**
+	 * Build transaction enhancement prompt
+	 */
+	private buildTransactionEnhancementPrompt(transaction: Transaction): string {
+		return `Analyze this financial transaction and suggest enhancements:
+
+Transaction Details:
+- Amount: $${transaction.amount}
+- Merchant: ${transaction.merchant}
+- Date: ${transaction.date}
+- Category: ${transaction.category}
+- Description: ${transaction.description}
+- Current tags: ${transaction.tags.join(', ') || 'No tags'}
+
+Please suggest:
+1. More specific tags
+2. Budget categories
+3. Expense type classification
+4. Related financial goals or tracking
+5. Action items (if any)
+6. Insights about spending patterns
+
+Return as JSON:
+{
+  "tags": ["specific", "tags"],
+  "categories": ["budget-category"],
+  "actionItems": ["action if needed"],
+  "relationships": ["related goal or category"],
+  "insights": "spending insight",
+  "priority": "high|medium|low",
+  "confidence": 0.75,
+  "metadata": {
+    "expenseType": "essential|discretionary|investment",
+    "budgetImpact": "high|medium|low",
+    "recurringLikelihood": "high|medium|low"
+  }
+}`;
+	}
+
+	private async callOpenAIChat(message: string, conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<string> {
+		const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+			{
+				role: 'system',
+				content: 'You are a helpful AI assistant integrated into a personal knowledge management system built with Obsidian. The user is working with their "Second Brain" - a system that captures transactions, calendar events, tasks, and notes. Provide helpful, conversational responses.'
+			}
+		];
+
+		// Add conversation history if provided
+		if (conversationHistory) {
+			messages.push(...conversationHistory.map(msg => ({
+				role: msg.role,
+				content: msg.content
+			})));
+		}
+
+		// Add current message
+		messages.push({
+			role: 'user',
+			content: message
+		});
+
 		const response = await axios.post('https://api.openai.com/v1/chat/completions', {
 			model: this.settings.llmModel,
-			messages: [
-				{
-					role: 'system',
-					content: 'You are a helpful AI assistant integrated into a personal knowledge management system built with Obsidian. The user is working with their "Second Brain" - a system that captures transactions, calendar events, tasks, and notes. Provide helpful, conversational responses.'
-				},
-				{
-					role: 'user',
-					content: message
-				}
-			],
+			messages,
 			temperature: 0.7,
 			max_tokens: 1000
 		}, {
@@ -354,16 +1137,27 @@ Return only valid JSON, no additional text.
 		return response.data.choices[0].message.content;
 	}
 
-	private async callAnthropicChat(message: string): Promise<string> {
+	private async callAnthropicChat(message: string, conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<string> {
+		let fullPrompt = 'You are a helpful AI assistant integrated into a personal knowledge management system built with Obsidian. The user is working with their "Second Brain" - a system that captures transactions, calendar events, tasks, and notes. Provide helpful, conversational responses.\n\n';
+		
+		// Add conversation history if provided
+		if (conversationHistory) {
+			fullPrompt += 'Conversation history:\n';
+			conversationHistory.forEach(msg => {
+				fullPrompt += `${msg.role}: ${msg.content}\n`;
+			});
+			fullPrompt += '\n';
+		}
+
+		fullPrompt += `User message: ${message}`;
+
 		const response = await axios.post('https://api.anthropic.com/v1/messages', {
 			model: this.settings.llmModel,
 			max_tokens: 1000,
 			messages: [
 				{
 					role: 'user',
-					content: `You are a helpful AI assistant integrated into a personal knowledge management system built with Obsidian. The user is working with their "Second Brain" - a system that captures transactions, calendar events, tasks, and notes. Provide helpful, conversational responses.
-
-User message: ${message}`
+					content: fullPrompt
 				}
 			]
 		}, {
@@ -377,14 +1171,15 @@ User message: ${message}`
 		return response.data.content[0].text;
 	}
 
-	private async callCustomChat(message: string): Promise<string> {
+	private async callCustomChat(message: string, conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<string> {
 		if (!this.settings.llmEndpoint) {
 			throw new Error('Custom LLM endpoint not configured');
 		}
 
 		const response = await axios.post(this.settings.llmEndpoint, {
-			prompt: this.buildChatPrompt(message),
+			prompt: this.buildChatPrompt(message, { conversationHistory }),
 			message: message,
+			conversationHistory,
 			type: 'chat',
 			model: this.settings.llmModel
 		}, {
@@ -397,25 +1192,98 @@ User message: ${message}`
 		return response.data.response || response.data.content || response.data;
 	}
 
-	private buildChatPrompt(message: string): string {
-		return `
-You are a helpful AI assistant integrated into a personal knowledge management system built with Obsidian. 
-The user is working with their "Second Brain" - a system that captures transactions, calendar events, tasks, and notes.
-
-User message: ${message}
-
-Please provide a helpful, conversational response. You can:
-- Answer questions about their data or system
-- Provide suggestions for organizing information
-- Help with productivity and knowledge management
-- Offer general assistance
-
-Keep your response natural and conversational. If the user asks about specific data, acknowledge that you would need access to their vault contents to provide specific details.
-
-Response:`;
-	}
-
 	updateSettings(newSettings: PluginSettings): void {
 		this.settings = newSettings;
+	}
+
+	/**
+	 * Save a completed chat thread as a note in the chats folder
+	 */
+	private async saveChatAsNote(thread: ChatThread): Promise<void> {
+		try {
+			console.log(`💾 IntelligenceBrokerService: Saving chat thread as note: ${thread.id}`);
+			
+			// Ensure chats folder exists
+			const chatsFolder = this.settings.chatsFolder;
+			const existingFolder = this.app.vault.getAbstractFileByPath(chatsFolder);
+			if (!existingFolder) {
+				console.log(`📁 Creating chats folder: ${chatsFolder}`);
+				await this.app.vault.createFolder(chatsFolder);
+			}
+
+			// Create a simple, clean chat note
+			const content = this.formatChatAsNote(thread);
+			
+			// Create filename with "Chat" suffix
+			const date = new Date(thread.startTime).toISOString().split('T')[0]; // YYYY-MM-DD
+			const time = new Date(thread.startTime).toTimeString().slice(0, 5).replace(':', ''); // HHMM
+			const fileName = `Chat Session ${date} ${time}.md`;
+			const filePath = `${chatsFolder}/${fileName}`;
+
+			console.log(`📝 Creating chat note: ${filePath}`);
+			
+			// Create the file
+			await this.app.vault.create(filePath, content);
+			console.log(`✅ Chat saved as note: ${filePath}`);
+			
+		} catch (error) {
+			console.error(`❌ Error saving chat as note:`, error);
+			// Don't throw - we don't want chat saving to break the flow
+		}
+	}
+
+	/**
+	 * Format a chat thread as a clean markdown note
+	 */
+	private formatChatAsNote(thread: ChatThread): string {
+		const startTime = new Date(thread.startTime);
+		const endTime = thread.endTime ? new Date(thread.endTime) : new Date();
+		
+		let content = `---
+type: chat-session
+date: ${startTime.toISOString().split('T')[0]}
+start-time: "${startTime.toISOString()}"
+end-time: "${endTime.toISOString()}"
+messages: ${thread.totalMessages}
+tags: [chat, second-brain]
+---
+
+# Chat Session - ${startTime.toLocaleDateString()} ${startTime.toLocaleTimeString()}
+
+**Duration:** ${this.calculateChatDuration(startTime, endTime)}  
+**Messages:** ${thread.totalMessages}  
+
+## Conversation
+
+`;
+
+		if (thread.messages.length === 0) {
+			content += "*No messages in this chat session*\n";
+		} else {
+			for (const message of thread.messages) {
+				const timestamp = new Date(message.timestamp).toLocaleTimeString();
+				const role = message.role === 'user' ? '**You**' : '**Assistant**';
+				content += `### ${role} *(${timestamp})*\n\n${message.content}\n\n`;
+			}
+		}
+
+		content += `\n---\n*Chat session ended at ${endTime.toLocaleString()}*\n`;
+		
+		return content;
+	}
+
+	/**
+	 * Calculate chat duration in a human-readable format
+	 */
+	private calculateChatDuration(start: Date, end: Date): string {
+		const durationMs = end.getTime() - start.getTime();
+		const minutes = Math.floor(durationMs / 60000);
+		const seconds = Math.floor((durationMs % 60000) / 1000);
+		
+		if (minutes > 0) {
+			return `${minutes}m ${seconds}s`;
+		} else {
+			return `${seconds}s`;
+		}
 	}
 }

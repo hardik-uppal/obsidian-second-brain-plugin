@@ -48,28 +48,43 @@ location: "{{location}}"
 attendees: [{{attendees}}]
 tags: [calendar, {{tags}}]
 event_id: "{{id}}"
+source_calendar: "{{source_calendar}}"
+calendar_name: "{{calendar_name}}"
+sync_status: "{{sync_status}}"
+last_modified: "{{last_modified}}"
+conflicts_with: [{{conflicts_with}}]
 created: "{{created}}"
 ---`,
 		content: `# {{title}}
 
-**Date:** {{date}}
-**Time:** {{start_time}} - {{end_time}}
-**Location:** {{location}}
+**📅 Date:** {{date}}
+**🕐 Time:** {{start_time}} - {{end_time}}
+**📍 Location:** {{location}}
+**👥 Attendees:** {{attendee_list}}
+**📂 Source:** {{calendar_name}} ({{source_calendar}})
+
+{{#if conflicts_with}}
+## ⚠️ Conflicts Detected
+This event conflicts with:
+{{#each conflicts_with}}
+- [[{{this}}]]
+{{/each}}
+{{/if}}
 
 ## Description
 {{description}}
 
-## Attendees
-{{attendee_list}}
+## Notes
+<!-- Add your personal notes here -->
 
-## Preparation Notes
-<!-- Add preparation notes here -->
-
-## Follow-up Actions
-<!-- Add follow-up tasks here -->
+## Action Items
+<!-- Extract action items from this event -->
 
 ## Related
 <!-- Links to related notes will appear here -->
+
+---
+*Synced from {{calendar_name}} on {{last_modified}}*
 `
 	},
 
@@ -196,7 +211,7 @@ export class TemplateDataProcessor {
 		
 		return {
 			id: event.id,
-			title: event.summary || 'Untitled Event',
+			title: event.summary || event.title || 'Untitled Event',
 			date: startDate.toISOString().split('T')[0],
 			start_time: event.start?.dateTime ? startDate.toLocaleTimeString() : 'All Day',
 			end_time: event.end?.dateTime ? endDate.toLocaleTimeString() : 'All Day',
@@ -205,6 +220,12 @@ export class TemplateDataProcessor {
 			attendees: event.attendees?.map((a: any) => a.email) || [],
 			attendee_list: event.attendees?.map((a: any) => `- ${a.email}`).join('\n') || 'No attendees',
 			tags: this.generateEventTags(event),
+			// Multiple calendar support fields
+			source_calendar: event.sourceCalendarId || 'unknown',
+			calendar_name: event.sourceCalendarName || 'Unknown Calendar',
+			sync_status: event.syncStatus || 'synced',
+			last_modified: event.lastModified || new Date().toISOString(),
+			conflicts_with: event.conflictsWith || [],
 			created: new Date().toISOString()
 		};
 	}
@@ -241,9 +262,28 @@ export class TemplateDataProcessor {
 	private static generateEventTags(event: any): string[] {
 		const tags = ['calendar'];
 		
+		// Event type tags
 		if (event.attendees?.length > 1) tags.push('meeting');
 		if (event.location) tags.push('in-person');
 		if (event.summary?.toLowerCase().includes('call')) tags.push('call');
+		if (event.summary?.toLowerCase().includes('interview')) tags.push('interview');
+		if (event.summary?.toLowerCase().includes('deadline')) tags.push('deadline');
+		
+		// Calendar source tags
+		if (event.sourceCalendarName) {
+			const calendarTag = event.sourceCalendarName.toLowerCase().replace(/\s+/g, '-');
+			tags.push(`cal:${calendarTag}`);
+		}
+		
+		// Conflict status tags
+		if (event.conflictsWith && event.conflictsWith.length > 0) {
+			tags.push('conflict');
+		}
+		
+		// Sync status tags
+		if (event.syncStatus === 'conflict') {
+			tags.push('needs-resolution');
+		}
 		
 		return tags;
 	}
