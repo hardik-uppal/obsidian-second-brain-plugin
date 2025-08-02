@@ -271,3 +271,42 @@ MIT License - see LICENSE file for details.
 ---
 
 **Note**: This plugin is in active development. Please report any issues or feature requests on GitHub.
+
+## Backend Setup (Required for Plaid Integration)
+
+The plugin requires a FastAPI backend server to handle Plaid integration due to CORS restrictions in desktop applications.
+
+### Quick Backend Setup
+
+1. **Navigate to the backend directory:**
+   ```bash
+   cd backend
+   ```
+
+2. **Run the setup script:**
+   ```bash
+   ./start.sh
+   ```
+
+3. **Configure Plaid credentials:**
+   - Copy `.env.example` to `.env`
+   - Add your Plaid credentials:
+     ```
+     PLAID_CLIENT_ID=your_plaid_client_id_here
+     PLAID_SECRET=your_plaid_secret_here
+     PLAID_ENV=sandbox
+     ```
+   - **Note**: Storing credentials in the backend `.env` file is more secure than in Obsidian settings
+
+4. **Verify the server is running:**
+   - Open http://localhost:8000/health
+   - You should see a "healthy" status
+
+### Get Plaid Credentials
+
+1. Sign up at https://plaid.com/
+2. Create a new application
+3. Get your Client ID and Secret from the dashboard
+4. Start with "sandbox" environment for testing
+
+For detailed setup instructions, see [backend/SETUP.md](backend/SETUP.md).

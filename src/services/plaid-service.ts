@@ -50,12 +50,25 @@ export class PlaidService {
 				throw new Error('No access token available. Please configure your Plaid Access Token.');
 			}
 
-			const request: AccountsGetRequest = {
-				access_token: this.settings.plaidAccessToken,
-			};
+			// Use FastAPI backend for API calls to avoid CORS issues
+			const backendUrl = 'http://localhost:8000';
+			
+			const response = await fetch(`${backendUrl}/plaid/accounts`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					access_token: this.settings.plaidAccessToken,
+					credentials: {
+						client_id: this.settings.plaidClientId || "",
+						secret: "", // Will use backend environment variable
+						environment: this.settings.plaidEnvironment
+					}
+				})
+			});
 
-			await this.client.accountsGet(request);
-			return true;
+			return response.ok;
 		} catch (error) {
 			console.error('Plaid connection test failed:', error);
 			return false;
@@ -68,12 +81,31 @@ export class PlaidService {
 				throw new Error('No access token available');
 			}
 
-			const request: AccountsGetRequest = {
-				access_token: this.settings.plaidAccessToken,
-			};
+			// Use FastAPI backend for API calls to avoid CORS issues
+			const backendUrl = 'http://localhost:8000';
+			
+			const response = await fetch(`${backendUrl}/plaid/accounts`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					access_token: this.settings.plaidAccessToken,
+					credentials: {
+						client_id: this.settings.plaidClientId || "",
+						secret: "", // Will use backend environment variable
+						environment: this.settings.plaidEnvironment
+					}
+				})
+			});
 
-			const response = await this.client.accountsGet(request);
-			return response.data.accounts;
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(`Backend API error: ${errorData.detail || response.statusText}`);
+			}
+
+			const data = await response.json();
+			return data.accounts;
 		} catch (error) {
 			console.error('Failed to fetch accounts:', error);
 			throw error;
@@ -90,14 +122,33 @@ export class PlaidService {
 			const end = endDate || new Date().toISOString().split('T')[0];
 			const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-			const request: TransactionsGetRequest = {
-				access_token: this.settings.plaidAccessToken,
-				start_date: start,
-				end_date: end,
-			};
+			// Use FastAPI backend for API calls to avoid CORS issues
+			const backendUrl = 'http://localhost:8000';
+			
+			const response = await fetch(`${backendUrl}/plaid/transactions`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					access_token: this.settings.plaidAccessToken,
+					start_date: start,
+					end_date: end,
+					credentials: {
+						client_id: this.settings.plaidClientId || "",
+						secret: "", // Will use backend environment variable
+						environment: this.settings.plaidEnvironment
+					}
+				})
+			});
 
-			const response = await this.client.transactionsGet(request);
-			return response.data.transactions;
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(`Backend API error: ${errorData.detail || response.statusText}`);
+			}
+
+			const data = await response.json();
+			return data.transactions;
 		} catch (error) {
 			console.error('Failed to fetch transactions:', error);
 			throw error;
@@ -149,73 +200,70 @@ export class PlaidService {
 		}
 	}
 
-	// OAuth flow helpers - proper implementation
-	async generateLinkToken(userId?: string): Promise<string> {
+	// OAuth flow helpers - Using FastAPI backend proxy
+	async generateLinkToken(userId?: string, countryCodes: string[] = ['US']): Promise<string> {
 		try {
-			console.log('=== Generating Link Token ===');
+			console.log('=== Generating Link Token via FastAPI Backend ===');
 			console.log('Plaid Environment:', this.settings.plaidEnvironment);
-			console.log('Base Path:', PlaidEnvironments[this.settings.plaidEnvironment]);
+			console.log('Country Codes:', countryCodes);
 			
-			const request: LinkTokenCreateRequest = {
-				client_name: "Obsidian Second Brain Plugin",
-				country_codes: [CountryCode.Us],
-				language: 'en',
-				user: {
-					client_user_id: userId || 'obsidian-user-' + Date.now()
+			// Check if FastAPI backend is available
+			const backendUrl = 'http://localhost:8000';
+			
+			try {
+				// Test backend connectivity
+				const healthResponse = await fetch(`${backendUrl}/health`);
+				if (!healthResponse.ok) {
+					throw new Error('Backend not responding');
+				}
+				console.log('FastAPI backend is available');
+			} catch (error) {
+				throw new Error('FastAPI backend is not running. Please start the backend server first.\n\nTo start the backend:\n1. Open terminal in the backend folder\n2. Run: python main.py\n3. Or run: ./start.sh');
+			}
+			
+			// Create link token via backend
+			const response = await fetch(`${backendUrl}/plaid/link-token`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
 				},
-				products: [Products.Transactions, Products.Auth],
-				account_filters: {
-					depository: {
-						account_subtypes: [DepositoryAccountSubtype.Checking, DepositoryAccountSubtype.Savings]
+				body: JSON.stringify({
+					user_id: userId || `obsidian_user_${Date.now()}`,
+					country_codes: countryCodes,
+					credentials: {
+						client_id: this.settings.plaidClientId || "",
+						secret: "", // Will use backend environment variable
+						environment: this.settings.plaidEnvironment
 					}
-				},
-				redirect_uri: undefined // Not needed for most integrations
-			};
+				})
+			});
 
-			console.log('Making request to /link/token/create...');
-			const response = await this.client.linkTokenCreate(request);
-			console.log('Link token created successfully');
-			return response.data.link_token;
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(`Backend API error: ${errorData.detail || response.statusText}`);
+			}
+
+			const data = await response.json();
+			console.log('Link token created successfully via backend');
+			return data.link_token;
+			
 		} catch (error: any) {
 			console.error('=== Link Token Creation Failed ===');
-			console.error('Error object:', error);
-			console.error('Error name:', error?.name);
-			console.error('Error code:', error?.code);
-			console.error('Response status:', error?.response?.status);
-			console.error('Response data:', error?.response?.data);
-			console.error('Error message:', error?.message);
-			console.error('Error stack:', error?.stack);
+			console.error('Error:', error);
 			
-			// Check for specific network error types first
-			if (error?.code === 'ECONNREFUSED' || error?.code === 'ENOTFOUND') {
-				throw new Error('Network error: Cannot reach Plaid servers. Check your internet connection and try again.');
-			} else if (error?.code === 'ECONNRESET' || error?.code === 'ETIMEDOUT') {
-				throw new Error('Network error: Connection to Plaid timed out. Please try again.');
-			} else if (error?.name === 'TypeError' && error?.message?.includes('fetch')) {
-				throw new Error('Network error: Failed to fetch from Plaid API. This may be caused by:\n• CORS restrictions\n• Ad blockers or browser extensions\n• Network firewall\n• Try disabling browser extensions temporarily');
-			} else if (error?.message?.toLowerCase()?.includes('failed to fetch')) {
-				throw new Error('Network error: Failed to fetch from Plaid API. Please check your internet connection and try again.');
-			} else if (error?.response?.status === 401) {
-				throw new Error('Invalid Plaid credentials. Please check your Client ID and Secret.');
-			} else if (error?.response?.status === 400) {
-				const errorCode = error?.response?.data?.error_code;
-				const errorMsg = error?.response?.data?.error_message || 'Invalid configuration';
-				throw new Error(`Plaid configuration error (${errorCode}): ${errorMsg}`);
-			} else if (error?.message?.includes('network') || error?.code === 'ECONNREFUSED') {
-				throw new Error('Network error connecting to Plaid. Please check your internet connection.');
-			} else if (error?.response?.data?.error_code) {
-				const errorCode = error.response.data.error_code;
-				const errorMsg = error.response.data.error_message || 'Unknown Plaid error';
-				throw new Error(`Plaid Error (${errorCode}): ${errorMsg}`);
+			if (error?.message?.includes('Backend') || error?.message?.includes('FastAPI')) {
+				throw error; // Re-throw backend-specific errors as-is
+			} else if (error?.message?.includes('fetch') || error?.name === 'TypeError') {
+				throw new Error('Network error: Unable to connect to FastAPI backend. Please ensure the backend server is running on http://localhost:8000');
 			} else {
-				throw new Error(`Plaid API error: ${error?.message || 'Unknown error'}. Check browser console for more details.`);
+				throw error;
 			}
 		}
 	}
 
 	async exchangePublicToken(publicToken: string): Promise<string> {
 		try {
-			console.log('Exchanging public token for access token...');
+			console.log('Exchanging public token for access token via FastAPI backend...');
 			console.log('Environment:', this.settings.plaidEnvironment);
 			console.log('Client ID configured:', !!this.settings.plaidClientId);
 			console.log('Secret configured:', !!this.settings.plaidSecret);
@@ -224,34 +272,54 @@ export class PlaidService {
 				throw new Error('Plaid credentials missing during token exchange');
 			}
 			
-			// Ensure client is properly initialized with current settings
-			this.initializeClient();
+			// Use FastAPI backend for token exchange to avoid CORS issues
+			const backendUrl = 'http://localhost:8000';
 			
-			const request: ItemPublicTokenExchangeRequest = {
-				public_token: publicToken
-			};
+			// Check if backend is available
+			try {
+				const healthResponse = await fetch(`${backendUrl}/health`);
+				if (!healthResponse.ok) {
+					throw new Error('Backend not responding');
+				}
+			} catch (error) {
+				throw new Error('FastAPI backend is not running. Please start the backend server first.');
+			}
+			
+			// Exchange token via backend
+			const response = await fetch(`${backendUrl}/plaid/exchange-token`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					public_token: publicToken,
+					credentials: {
+						client_id: this.settings.plaidClientId || "",
+						secret: "", // Will use backend environment variable
+						environment: this.settings.plaidEnvironment
+					}
+				})
+			});
 
-			const response = await this.client.itemPublicTokenExchange(request);
-			console.log('Token exchange successful');
-			return response.data.access_token;
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(`Backend API error: ${errorData.detail || response.statusText}`);
+			}
+
+			const data = await response.json();
+			console.log('Token exchange successful via backend');
+			return data.access_token;
+			
 		} catch (error: any) {
 			console.error('Failed to exchange public token:', error);
-			console.error('Error details:', error?.response?.data);
 			
 			// Provide more specific error messages
-			if (error?.response?.status === 400) {
-				const errorCode = error?.response?.data?.error_code;
-				const errorMsg = error?.response?.data?.error_message || 'Invalid request';
-				throw new Error(`Plaid API Error (${errorCode}): ${errorMsg}`);
-			} else if (error?.response?.status === 401) {
+			if (error?.message?.includes('Backend') || error?.message?.includes('FastAPI')) {
+				throw error; // Re-throw backend-specific errors as-is
+			} else if (error?.message?.includes('credentials')) {
 				throw new Error('Invalid Plaid credentials during token exchange. Please check your Client ID and Secret.');
-			} else if (error?.response?.data?.error_code) {
-				// Handle specific Plaid error codes
-				const errorCode = error.response.data.error_code;
-				const errorMsg = error.response.data.error_message || 'Unknown Plaid error';
-				throw new Error(`Plaid Error (${errorCode}): ${errorMsg}`);
 			} else if (error?.message?.includes('network') || error?.code === 'ECONNREFUSED') {
-				throw new Error('Network error during token exchange. Please check your internet connection.');
+				throw new Error('Network error during token exchange. Please check your internet connection and ensure the FastAPI backend is running.');
 			} else {
 				throw new Error(`Token exchange failed: ${error?.message || 'Unknown error'}`);
 			}
@@ -295,38 +363,42 @@ export class PlaidService {
 		});
 	}
 
-	// Initiate Plaid Link flow using local HTML file approach
-	async initiateLinkFlow(): Promise<void> {
+	// Initiate Plaid Link flow using FastAPI backend
+	async initiateLinkFlow(countryCodes: string[] = ['US']): Promise<void> {
 		try {
 			// Check if we have the required credentials
 			if (!this.hasCredentials()) {
 				throw new Error('Plaid credentials not configured. Please set your Client ID and Secret in settings first.');
 			}
 
-			console.log('=== Starting Plaid Link Flow ===');
+			console.log('=== Starting Plaid Link Flow via FastAPI Backend ===');
 			console.log('Environment:', this.settings.plaidEnvironment);
+			console.log('Countries:', countryCodes);
 			console.log('Client ID:', this.settings.plaidClientId?.substring(0, 10) + '...');
 
-			new Notice('Generating Plaid link token...');
+			new Notice('Starting bank account connection...');
 			
-			console.log('Step 1: Generating link token...');
-			const linkToken = await this.generateLinkToken();
-			console.log('Step 1 completed: Link token generated');
+			// Check if FastAPI backend is running
+			const backendUrl = 'http://localhost:8000';
+			try {
+				const healthResponse = await fetch(`${backendUrl}/health`);
+				if (!healthResponse.ok) {
+					throw new Error('Backend not responding');
+				}
+			} catch (error) {
+				throw new Error('FastAPI backend is not running. Please start the backend server first.\n\nTo start:\n1. Open terminal in the backend folder\n2. Run: ./start.sh\n3. Or run: python main.py');
+			}
 
-			console.log('Step 2: Creating Plaid Link HTML...');
-			const linkHtml = this.createPlaidLinkHtml(linkToken);
+			// Open the Plaid Link interface served by our backend
+			const countriesParam = countryCodes.join(',');
+			const linkUrl = `${backendUrl}/plaid/link?client_id=${encodeURIComponent(this.settings.plaidClientId)}&environment=${encodeURIComponent(this.settings.plaidEnvironment)}&countries=${encodeURIComponent(countriesParam)}`;
 			
-			console.log('Step 3: Opening Plaid Link in browser...');
-			// Create a blob URL for the HTML content
-			const blob = new Blob([linkHtml], { type: 'text/html' });
-			const blobUrl = URL.createObjectURL(blob);
+			console.log('Opening Plaid Link interface...');
+			window.open(linkUrl, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
 			
-			// Open in new window/tab
-			window.open(blobUrl, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+			new Notice(`✅ Plaid Link opened in your browser!\n\n📋 Instructions:\n1. Select your country from the dropdown\n2. Complete bank authentication in the browser\n3. After success, copy the provided token\n4. Return to Obsidian and use "Exchange Plaid Token" command\n5. Paste the token to complete connection`, 15000);
 			
-			new Notice(`✅ Plaid Link opened in your browser!\n\n📋 Instructions:\n1. Complete bank authentication in the browser window\n2. After success, you'll get a token starting with "public-"\n3. Copy that token\n4. Return to Obsidian and use "Exchange Plaid Token" command\n5. Paste the token to complete connection`, 15000);
-			
-			console.log('Step 3 completed: Browser opened with Plaid Link');
+			console.log('Plaid Link interface opened successfully');
 
 		} catch (error) {
 			console.error('=== Plaid Link Flow Failed ===');
@@ -336,10 +408,10 @@ export class PlaidService {
 			let errorMessage = 'Failed to start bank account connection: ';
 			
 			if (error instanceof Error) {
-				if (error.message.includes('network') || error.message.includes('Network')) {
-					errorMessage += 'Network error. Please check your internet connection and try again.';
-				} else if (error.message.includes('credentials') || error.message.includes('401')) {
+				if (error.message.includes('credentials') || error.message.includes('401')) {
 					errorMessage += 'Invalid Plaid credentials. Please check your Client ID and Secret in settings.';
+				} else if (error.message.includes('Backend') || error.message.includes('FastAPI')) {
+					errorMessage += error.message;
 				} else if (error.message.includes('environment')) {
 					errorMessage += 'Environment configuration error. Please check if you have access to the selected Plaid environment.';
 				} else {
@@ -379,7 +451,8 @@ export class PlaidService {
 
 			// Start the link flow
 			console.log('Starting Plaid Link flow...');
-			await this.initiateLinkFlow();
+			const selectedCountries = this.getSelectedCountries();
+			await this.initiateLinkFlow(selectedCountries);
 			return true;
 		} catch (error: any) {
 			console.error('Failed to connect bank account:', error);
@@ -528,241 +601,6 @@ export class PlaidService {
 		}
 	}
 
-	// Create HTML page for Plaid Link in browser
-	private createPlaidLinkHtml(linkToken: string): string {
-		return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connect Your Bank Account - Plaid</title>
-    <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .container {
-            background: white;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            text-align: center;
-            max-width: 500px;
-            width: 100%;
-        }
-        h1 {
-            color: #333;
-            margin-bottom: 20px;
-        }
-        .logo {
-            width: 60px;
-            height: 60px;
-            background: #667eea;
-            border-radius: 50%;
-            margin: 0 auto 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 24px;
-        }
-        button {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            margin: 10px;
-            transition: background 0.3s;
-        }
-        button:hover {
-            background: #5a6fd8;
-        }
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        .status {
-            margin: 20px 0;
-            padding: 10px;
-            border-radius: 6px;
-            font-weight: 500;
-        }
-        .success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        .info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #b6d4db;
-        }
-        .token-display {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 15px 0;
-            font-family: monospace;
-            word-break: break-all;
-            font-size: 14px;
-        }
-        .instructions {
-            text-align: left;
-            margin: 20px 0;
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 6px;
-            border-left: 4px solid #667eea;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="logo">🏦</div>
-        <h1>Connect Your Bank Account</h1>
-        <p>Click the button below to securely connect your bank account through Plaid.</p>
-        
-        <button id="connectButton" onclick="startPlaidLink()">
-            Connect Bank Account
-        </button>
-        
-        <div id="status" class="status info" style="display: none;">
-            Initializing secure connection...
-        </div>
-        
-        <div id="tokenSection" style="display: none;">
-            <div class="instructions">
-                <h3>✅ Success! Bank Account Connected</h3>
-                <p><strong>Next steps:</strong></p>
-                <ol>
-                    <li>Copy the token below</li>
-                    <li>Return to Obsidian</li>
-                    <li>Use the "Exchange Plaid Token" command or button in settings</li>
-                    <li>Paste the token when prompted</li>
-                </ol>
-            </div>
-            
-            <h3>Your Plaid Token:</h3>
-            <div id="tokenDisplay" class="token-display">
-                Token will appear here...
-            </div>
-            <button onclick="copyToken()">Copy Token</button>
-            <button onclick="window.close()">Close Window</button>
-        </div>
-    </div>
-
-    <script>
-        let publicToken = null;
-        let linkHandler = null;
-
-        function showStatus(message, type = 'info') {
-            const statusEl = document.getElementById('status');
-            statusEl.textContent = message;
-            statusEl.className = 'status ' + type;
-            statusEl.style.display = 'block';
-        }
-
-        function showToken(token) {
-            publicToken = token;
-            document.getElementById('tokenDisplay').textContent = token;
-            document.getElementById('tokenSection').style.display = 'block';
-            document.getElementById('connectButton').style.display = 'none';
-        }
-
-        function copyToken() {
-            if (publicToken) {
-                navigator.clipboard.writeText(publicToken).then(() => {
-                    showStatus('Token copied to clipboard!', 'success');
-                }).catch(() => {
-                    // Fallback for older browsers
-                    const textArea = document.createElement('textarea');
-                    textArea.value = publicToken;
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textArea);
-                    showStatus('Token copied to clipboard!', 'success');
-                });
-            }
-        }
-
-        function startPlaidLink() {
-            showStatus('Initializing Plaid Link...', 'info');
-            
-            try {
-                linkHandler = Plaid.create({
-                    token: '${linkToken}',
-                    onSuccess: function(public_token, metadata) {
-                        console.log('Plaid Link Success:', public_token, metadata);
-                        showStatus('Bank account connected successfully!', 'success');
-                        showToken(public_token);
-                    },
-                    onLoad: function() {
-                        console.log('Plaid Link loaded');
-                        showStatus('Plaid Link loaded, opening connection dialog...', 'info');
-                    },
-                    onExit: function(err, metadata) {
-                        if (err != null) {
-                            console.error('Plaid Link Error:', err, metadata);
-                            showStatus('Connection failed: ' + err.error_message, 'error');
-                        } else {
-                            console.log('Plaid Link Exit:', metadata);
-                            showStatus('Connection cancelled', 'info');
-                        }
-                    },
-                    onEvent: function(eventName, metadata) {
-                        console.log('Plaid Link Event:', eventName, metadata);
-                    }
-                });
-                
-                // Open Plaid Link
-                linkHandler.open();
-            } catch (error) {
-                console.error('Failed to initialize Plaid Link:', error);
-                showStatus('Failed to initialize Plaid Link: ' + error.message, 'error');
-            }
-        }
-
-        // Auto-start if this is a direct link (optional)
-        // startPlaidLink();
-    </script>
-</body>
-</html>`;
-	}
-
-	// Create temporary HTML file for Plaid Link
-	private async createTempLinkFile(htmlContent: string): Promise<string> {
-		const os = require('os');
-		const path = require('path');
-		const fs = require('fs').promises;
-		
-		const tempDir = os.tmpdir();
-		const fileName = `plaid-link-${Date.now()}.html`;
-		const filePath = path.join(tempDir, fileName);
-		
-		await fs.writeFile(filePath, htmlContent, 'utf8');
-		console.log('Temporary Plaid Link file created:', filePath);
-		
-		return filePath;
-	}
-
 	// Method to handle public token from browser
 	async handlePublicTokenFromBrowser(publicToken: string): Promise<boolean> {
 		try {
@@ -789,5 +627,26 @@ export class PlaidService {
 			new Notice(`Failed to complete bank account connection: ${errorMsg}`);
 			return false;
 		}
+	}
+
+	// Get supported countries for Plaid integration
+	getSupportedCountries(): { code: string; name: string; flag: string }[] {
+		return [
+			{ code: 'US', name: 'United States', flag: '🇺🇸' },
+			{ code: 'CA', name: 'Canada', flag: '🇨🇦' },
+			{ code: 'GB', name: 'United Kingdom', flag: '🇬🇧' },
+			{ code: 'IE', name: 'Ireland', flag: '🇮🇪' },
+			{ code: 'FR', name: 'France', flag: '🇫🇷' },
+			{ code: 'ES', name: 'Spain', flag: '🇪🇸' },
+			{ code: 'NL', name: 'Netherlands', flag: '🇳🇱' },
+			{ code: 'DE', name: 'Germany', flag: '🇩🇪' }
+		];
+	}
+
+	// Get user's selected countries from settings
+	getSelectedCountries(): string[] {
+		return this.settings.plaidCountryCodes?.length > 0 
+			? this.settings.plaidCountryCodes 
+			: ['US']; // Default to US if none selected
 	}
 }

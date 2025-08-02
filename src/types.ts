@@ -12,6 +12,7 @@ export interface PluginSettings {
 	plaidSecret: string;
 	plaidEnvironment: 'sandbox' | 'production';
 	plaidAccessToken?: string;
+	plaidCountryCodes: string[]; // Countries to support: US, CA, GB, IE, FR, ES, NL, DE
 
 	// Google Calendar Configuration (OAuth2 only)
 	googleCalendarClientId: string;
@@ -55,6 +56,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	plaidSecret: '',
 	plaidAccessToken: '',
 	plaidEnvironment: 'sandbox',
+	plaidCountryCodes: ['US'], // Default to US
 	
 	googleCalendarClientId: '',
 	googleCalendarClientSecret: '',
