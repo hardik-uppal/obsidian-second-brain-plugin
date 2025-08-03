@@ -21,6 +21,9 @@ export interface PluginSettings {
 	// Master Calendar Settings
 	masterCalendar: MasterCalendarSettings;
 
+	// Transaction Settings
+	transactionSettings: TransactionSyncSettings;
+
 	// Tasks Configuration
 	tasksPluginEnabled: boolean;
 	todoistApiKey?: string; // Optional external task source
@@ -37,6 +40,7 @@ export interface PluginSettings {
 	lastTransactionSync?: string;
 	lastEventSync?: string;
 	lastTaskSync?: string;
+	processedTransactionIds: string[]; // Track processed transactions to avoid duplicates
 
 	// Graph Export Settings
 	exportFormat: 'json' | 'pytorch' | 'csv';
@@ -90,6 +94,17 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 		}
 	},
 	
+	transactionSettings: {
+		syncRange: 'month',
+		batchSize: 50,
+		organizeByMonth: true,
+		templateEnabled: true,
+		templatePath: 'templates/transaction.md',
+		fileNameFormat: '{{date}} - {{merchant}} - {{amount}}',
+		maxTransactionsPerSync: 500,
+		skipDuplicates: true
+	},
+	
 	tasksPluginEnabled: true,
 	
 	notesFolder: 'notes',
@@ -98,6 +113,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	tasksFolder: 'tasks',
 	templatesFolder: 'templates',
 	chatsFolder: 'chats',
+	
+	processedTransactionIds: [],
 	
 	exportFormat: 'json',
 	includeContent: true,
@@ -127,6 +144,45 @@ export interface Transaction {
 	rawData?: any;
 }
 
+// Transaction Sync Types (following calendar pattern)
+export interface TransactionSyncSettings {
+	syncRange: 'week' | 'month' | 'quarter' | 'custom';
+	customStartDate?: string; // YYYY-MM-DD (for custom range)
+	customEndDate?: string;   // YYYY-MM-DD (for custom range)
+	batchSize: number;        // Transactions per batch (default: 50)
+	organizeByMonth: boolean; // Create YYYY-MM folders
+	templateEnabled: boolean; // Use Templator service
+	templatePath: string;     // Path to transaction template
+	fileNameFormat: string;   // Format for transaction note names
+	maxTransactionsPerSync: number;
+	skipDuplicates: boolean;  // Check for existing notes
+}
+
+export interface TransactionBatchInfo {
+	id: string;
+	status: 'pending' | 'processing' | 'completed' | 'error';
+	totalTransactions: number;
+	processedTransactions: number;
+	startDate: string;
+	endDate: string;
+	createdAt: string;
+	errorMessage?: string;
+	progressPercentage: number;
+}
+
+export interface TransactionSyncResult {
+	success: boolean;
+	batchId: string;
+	transactionsProcessed: number;
+	transactionsSkipped: number;
+	notesCreated: number;
+	duplicatesFound: number;
+	errors: string[];
+	duration: number;
+	folderPath: string; // Where notes were created
+}
+
+// Calendar Event Types
 export interface CalendarEvent {
 	id: string;
 	title: string;

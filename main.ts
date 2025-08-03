@@ -6,6 +6,8 @@ import { PlaidService } from './src/services/plaid-service';
 import { CalendarService } from './src/services/calendar-service';
 import { MasterCalendarService } from './src/services/master-calendar-service';
 import { SuggestionManagementService } from './src/services/suggestion-management-service';
+import { TransactionProcessingService } from './src/services/transaction-processing-service';
+import { EventTemplateService } from './src/services/event-template-service';
 import { TemplateEngine, TemplateDataProcessor } from './src/utils/templates';
 import { ChatView, CHAT_VIEW_TYPE } from './src/ui/ChatView';
 import { CalendarView, CALENDAR_VIEW_TYPE } from './src/ui/CalendarView';
@@ -21,6 +23,8 @@ export default class SecondBrainPlugin extends Plugin {
 	calendarService: CalendarService;
 	masterCalendarService: MasterCalendarService;
 	suggestionManagementService: SuggestionManagementService;
+	transactionService: TransactionProcessingService;
+	eventTemplateService: EventTemplateService;
 
 	async onload() {
 		await this.loadSettings();
@@ -41,6 +45,9 @@ export default class SecondBrainPlugin extends Plugin {
 
 		// Initialize suggestion management service
 		await this.suggestionManagementService.initialize();
+
+		// Initialize transaction processing service
+		await this.transactionService.initialize();
 
 		// Register views
 		this.registerView(CHAT_VIEW_TYPE, (leaf) => new ChatView(leaf, this));
@@ -94,6 +101,18 @@ export default class SecondBrainPlugin extends Plugin {
 		this.calendarService = new CalendarService(this.settings);
 		this.masterCalendarService = new MasterCalendarService(this.app, this.settings);
 		this.suggestionManagementService = new SuggestionManagementService(this.app, this.settings, this.intelligenceBrokerService);
+		
+		// Initialize event template service
+		this.eventTemplateService = new EventTemplateService(this.app, this.settings);
+		
+		// Initialize transaction processing service
+		this.transactionService = new TransactionProcessingService(
+			this.app,
+			this.settings,
+			this.plaidService,
+			this.eventTemplateService,
+			this.suggestionManagementService
+		);
 	}
 
 	private addCommands(): void {
@@ -129,6 +148,26 @@ export default class SecondBrainPlugin extends Plugin {
 			name: 'Sync Transactions from Plaid',
 			callback: async () => {
 				await this.syncTransactions();
+			}
+		});
+
+		// NEW: Sync transactions with date range selection
+		this.addCommand({
+			id: 'sync-transactions-with-range',
+			name: 'Sync Transactions (Custom Range)',
+			callback: () => {
+				new TransactionSyncModal(this.app, this).open();
+			}
+		});
+
+		// NEW: Quick sync for this month
+		this.addCommand({
+			id: 'sync-transactions-month',
+			name: 'Sync Transactions (This Month)',
+			callback: async () => {
+				await this.transactionService.syncTransactionsBatch({
+					syncRange: 'month'
+				});
 			}
 		});
 
@@ -319,7 +358,7 @@ export default class SecondBrainPlugin extends Plugin {
 		// }
 	}
 
-	private async syncTransactions(): Promise<void> {
+	async syncTransactions(): Promise<void> {
 		if (this.state.syncStatus.transactions.isRunning) {
 			new Notice('Transaction sync already in progress');
 			return;
@@ -339,29 +378,24 @@ export default class SecondBrainPlugin extends Plugin {
 		this.state.syncStatus.transactions.errors = [];
 
 		try {
-			const transactions = await this.plaidService.getNewTransactions();
+			// Use the new batch processing approach
+			const result = await this.transactionService.syncTransactionsBatch();
 			
-			for (const transaction of transactions) {
-				try {
-					await this.processTransaction(transaction);
-					this.state.syncStatus.transactions.itemsProcessed++;
-				} catch (error) {
-					const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-					this.state.syncStatus.transactions.errors.push(errorMsg);
-					console.error('Failed to process transaction:', error);
-				}
+			if (result.success) {
+				new Notice(`Transaction sync completed: ${result.notesCreated} notes created, ${result.duplicatesFound} duplicates skipped`);
+				this.state.syncStatus.transactions.itemsProcessed = result.transactionsProcessed;
+			} else {
+				new Notice(`Transaction sync failed: ${result.errors.join(', ')}`);
+				this.state.syncStatus.transactions.errors = result.errors;
 			}
 
-			// Update last sync time
-			this.settings.lastTransactionSync = new Date().toISOString();
-			await this.saveSettings();
-
-			new Notice(`Synced ${this.state.syncStatus.transactions.itemsProcessed} transactions`);
 		} catch (error) {
 			const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+			this.state.syncStatus.transactions.errors.push(errorMsg);
 			new Notice(`Transaction sync failed: ${errorMsg}`);
 		} finally {
 			this.state.syncStatus.transactions.isRunning = false;
+			this.state.syncStatus.transactions.lastSync = new Date().toISOString();
 		}
 	}
 
@@ -373,69 +407,6 @@ export default class SecondBrainPlugin extends Plugin {
 	async showConflictResolutionModal(): Promise<void> {
 		// For now, just show a message about using the new system
 		new Notice('Conflict resolution is handled automatically in the new calendar system. Check the settings for calendar priorities.', 5000);
-	}
-
-	private async processTransaction(transaction: any): Promise<void> {
-		// Format transaction data
-		const templateData = TemplateDataProcessor.processTransaction(transaction);
-		
-		// Use LLM to enhance the data if configured
-		if (this.settings.llmApiKey) {
-			try {
-				const llmResult = await this.intelligenceBrokerService.parseTransaction(transaction);
-				// Merge LLM suggestions with template data
-				templateData.suggestions = llmResult.suggestions;
-				if (llmResult.tags) {
-					templateData.tags = [...templateData.tags, ...llmResult.tags];
-				}
-			} catch (error) {
-				console.warn('LLM processing failed for transaction:', error);
-			}
-		}
-
-		// Generate note content
-		const noteContent = TemplateEngine.render('transaction', templateData);
-		
-		// Create note file
-		const fileName = `${templateData.date}-${templateData.id}.md`;
-		const filePath = `${this.settings.transactionsFolder}/${fileName}`;
-		
-		// Check if file already exists
-		const existingFile = this.app.vault.getAbstractFileByPath(filePath);
-		if (!existingFile) {
-			await this.app.vault.create(filePath, noteContent);
-		}
-	}
-
-	private async processEvent(event: any): Promise<void> {
-		// Format event data
-		const templateData = TemplateDataProcessor.processEvent(event);
-		
-		// Use LLM to enhance the data if configured
-		if (this.settings.llmApiKey) {
-			try {
-				const llmResult = await this.intelligenceBrokerService.parseEvent(event);
-				templateData.suggestions = llmResult.suggestions;
-				if (llmResult.tags) {
-					templateData.tags = [...templateData.tags, ...llmResult.tags];
-				}
-			} catch (error) {
-				console.warn('LLM processing failed for event:', error);
-			}
-		}
-
-		// Generate note content
-		const noteContent = TemplateEngine.render('event', templateData);
-		
-		// Create note file
-		const fileName = `${templateData.date}-${templateData.title.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}.md`;
-		const filePath = `${this.settings.eventsFolder}/${fileName}`;
-		
-		// Check if file already exists
-		const existingFile = this.app.vault.getAbstractFileByPath(filePath);
-		if (!existingFile) {
-			await this.app.vault.create(filePath, noteContent);
-		}
 	}
 
 	private async exportGraphData(): Promise<void> {
@@ -630,6 +601,8 @@ export default class SecondBrainPlugin extends Plugin {
 		if (this.suggestionManagementService) this.suggestionManagementService.updateSettings(this.settings);
 		if (this.plaidService) this.plaidService.updateSettings(this.settings);
 		if (this.calendarService) this.calendarService.updateSettings(this.settings);
+		if (this.transactionService) this.transactionService.updateSettings(this.settings);
+		if (this.eventTemplateService) this.eventTemplateService.updateSettings(this.settings);
 	}
 
 	async addGoogleAccount(label: string): Promise<void> {
@@ -1120,6 +1093,151 @@ class SecondBrainSettingTab extends PluginSettingTab {
 			<p><strong>Still having issues?</strong> Check the browser console (F12) for detailed error messages.</p>
 		`;
 
+		// Transaction Sync Settings
+		containerEl.createEl('h3', { text: '💳 Transaction Sync Settings' });
+
+		// Date Range Selection
+		new Setting(containerEl)
+			.setName('Default Sync Range')
+			.setDesc('Choose the default time period for transaction sync')
+			.addDropdown(dropdown => dropdown
+				.addOption('week', 'Last Week')
+				.addOption('month', 'Last Month')
+				.addOption('quarter', 'Last Quarter')
+				.addOption('custom', 'Custom Range')
+				.setValue(this.plugin.settings.transactionSettings.syncRange)
+				.onChange(async (value: any) => {
+					this.plugin.settings.transactionSettings.syncRange = value;
+					await this.plugin.saveSettings();
+					this.display(); // Refresh to show/hide custom date inputs
+				}));
+
+		// Custom date range inputs (only show if custom is selected)
+		if (this.plugin.settings.transactionSettings.syncRange === 'custom') {
+			new Setting(containerEl)
+				.setName('Start Date')
+				.setDesc('Start date for custom sync range')
+				.addText(text => text
+					.setPlaceholder('YYYY-MM-DD')
+					.setValue(this.plugin.settings.transactionSettings.customStartDate || '')
+					.onChange(async (value) => {
+						this.plugin.settings.transactionSettings.customStartDate = value;
+						await this.plugin.saveSettings();
+					}));
+
+			new Setting(containerEl)
+				.setName('End Date')
+				.setDesc('End date for custom sync range')
+				.addText(text => text
+					.setPlaceholder('YYYY-MM-DD')
+					.setValue(this.plugin.settings.transactionSettings.customEndDate || '')
+					.onChange(async (value) => {
+						this.plugin.settings.transactionSettings.customEndDate = value;
+						await this.plugin.saveSettings();
+					}));
+		}
+
+		// Batch Size Configuration
+		new Setting(containerEl)
+			.setName('Batch Size')
+			.setDesc('Number of transactions to process in each batch (affects performance)')
+			.addSlider(slider => slider
+				.setLimits(10, 200, 10)
+				.setValue(this.plugin.settings.transactionSettings.batchSize)
+				.setDynamicTooltip()
+				.onChange(async (value) => {
+					this.plugin.settings.transactionSettings.batchSize = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// File Organization Settings
+		new Setting(containerEl)
+			.setName('Organize by Month')
+			.setDesc('Create separate folders for each month (e.g., transactions/2025-01/)')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.transactionSettings.organizeByMonth)
+				.onChange(async (value) => {
+					this.plugin.settings.transactionSettings.organizeByMonth = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('File Name Format')
+			.setDesc('Template for transaction note filenames (use {{date}}, {{merchant}}, {{amount}})')
+			.addText(text => text
+				.setPlaceholder('{{date}} - {{merchant}} - {{amount}}')
+				.setValue(this.plugin.settings.transactionSettings.fileNameFormat)
+				.onChange(async (value) => {
+					this.plugin.settings.transactionSettings.fileNameFormat = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// Template Settings
+		new Setting(containerEl)
+			.setName('Use Custom Templates')
+			.setDesc('Use Templator templates for transaction notes')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.transactionSettings.templateEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings.transactionSettings.templateEnabled = value;
+					await this.plugin.saveSettings();
+					this.display(); // Refresh to show/hide template path
+				}));
+
+		if (this.plugin.settings.transactionSettings.templateEnabled) {
+			new Setting(containerEl)
+				.setName('Template Path')
+				.setDesc('Path to the transaction template file')
+				.addText(text => text
+					.setPlaceholder('templates/transaction.md')
+					.setValue(this.plugin.settings.transactionSettings.templatePath)
+					.onChange(async (value) => {
+						this.plugin.settings.transactionSettings.templatePath = value;
+						await this.plugin.saveSettings();
+					}));
+		}
+
+		// Sync Actions
+		new Setting(containerEl)
+			.setName('Manual Sync')
+			.setDesc('Manually trigger transaction sync operations')
+			.addButton(button => button
+				.setButtonText('Sync Transactions')
+				.setClass('mod-cta')
+				.onClick(async () => {
+					await this.plugin.syncTransactions();
+				}))
+			.addButton(button => button
+				.setButtonText('Custom Range Sync')
+				.setClass('mod-secondary')
+				.onClick(() => {
+					new TransactionSyncModal(this.plugin.app, this.plugin).open();
+				}));
+
+		// Sync Statistics
+		const stats = this.plugin.transactionService?.getSyncStatistics();
+		if (stats) {
+			new Setting(containerEl)
+				.setName('Sync Statistics')
+				.setDesc(`Last sync: ${stats.lastSync ? new Date(stats.lastSync).toLocaleDateString() : 'Never'}\nProcessed transactions: ${stats.processedTransactions}\nCredentials: ${stats.hasCredentials ? '✅' : '❌'}\nAccess token: ${stats.hasAccessToken ? '✅' : '❌'}`)
+				.addButton(button => button
+					.setButtonText('View Details')
+					.setClass('mod-secondary')
+					.onClick(() => {
+						const details = `Transaction Sync Statistics:
+
+📊 Last Sync: ${stats.lastSync ? new Date(stats.lastSync).toLocaleString() : 'Never'}
+🔢 Processed Transactions: ${stats.processedTransactions}
+🔑 Credentials Configured: ${stats.hasCredentials ? '✅ Yes' : '❌ No'}
+🎫 Access Token: ${stats.hasAccessToken ? '✅ Connected' : '❌ Not connected'}
+📁 Default Sync Range: ${this.plugin.settings.transactionSettings.syncRange}
+📦 Batch Size: ${this.plugin.settings.transactionSettings.batchSize}
+📂 Organize by Month: ${this.plugin.settings.transactionSettings.organizeByMonth ? '✅ Yes' : '❌ No'}`;
+						
+						new Notice(details, 10000);
+					}));
+		}
+
 		// Calendar Integration Settings - New Unified System
 		this.renderCalendarSettings(containerEl);
 	}
@@ -1467,5 +1585,201 @@ class SecondBrainSettingTab extends PluginSettingTab {
 				: 'Never';
 			accountRow.createEl('div', { text: lastSyncText });
 		}
+	}
+}
+
+// Transaction Sync Modal
+class TransactionSyncModal extends Modal {
+	plugin: SecondBrainPlugin;
+
+	constructor(app: App, plugin: SecondBrainPlugin) {
+		super(app);
+		this.plugin = plugin;
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.createEl('h2', { text: 'Sync Transactions' });
+
+		// Date range options
+		new Setting(contentEl)
+			.setName('Sync Range')
+			.setDesc('Select the date range for syncing transactions')
+			.addDropdown(dropdown => dropdown
+				.addOption('today', 'Today')
+				.addOption('week', 'Last 7 Days')
+				.addOption('month', 'Last 30 Days')
+				.addOption('custom', 'Custom Range')
+				.setValue('month') // Default to last 30 days
+				.onChange(async (value) => {
+					if (value === 'custom') {
+						// Show custom date inputs
+						this.showCustomDateInputs(contentEl);
+					} else {
+						// Hide custom date inputs
+						this.hideCustomDateInputs(contentEl);
+					}
+				}));
+
+		// Custom date inputs (hidden by default)
+		this.hideCustomDateInputs(contentEl);
+
+		const buttonContainer = contentEl.createDiv();
+		
+		const syncButton = buttonContainer.createEl('button', { text: 'Sync Transactions' });
+		syncButton.onclick = async () => {
+			const range = this.getSelectedDateRange(contentEl);
+			if (!range) {
+				new Notice('Invalid date range');
+				return;
+			}
+
+			try {
+				new Notice(`Syncing transactions for ${range.label}...`);
+				await this.plugin.transactionService.syncTransactionsBatch({
+					syncRange: 'custom',
+					customStartDate: range.start.toISOString().split('T')[0], // Convert to YYYY-MM-DD
+					customEndDate: range.end.toISOString().split('T')[0]
+				});
+				new Notice('Transaction sync completed');
+				this.close();
+			} catch (error) {
+				new Notice(`Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+			}
+		};
+
+		const cancelButton = buttonContainer.createEl('button', { text: 'Cancel' });
+		cancelButton.onclick = () => this.close();
+	}
+
+	onClose() {
+		const { contentEl } = this;
+		contentEl.empty();
+	}
+
+	private showCustomDateInputs(containerEl: HTMLElement) {
+		// First remove any existing custom date inputs to prevent duplicates
+		this.hideCustomDateInputs(containerEl);
+		
+		// Create a container for custom date inputs
+		const customDateContainer = containerEl.createDiv({ cls: 'custom-date-inputs' });
+		
+		new Setting(customDateContainer)
+			.setName('Start Date')
+			.setDesc('Start date for custom sync range')
+			.addText(text => {
+				// Set current value if available
+				const currentValue = this.plugin.settings.transactionSettings.customStartDate;
+				if (currentValue) {
+					text.setValue(currentValue);
+				}
+				
+				text.setPlaceholder('YYYY-MM-DD')
+					.onChange(async (value) => {
+						// Validate and save start date
+						if (!value.trim()) {
+							this.plugin.settings.transactionSettings.customStartDate = '';
+							await this.plugin.saveSettings();
+							return;
+						}
+						
+						const date = new Date(value);
+						if (isNaN(date.getTime())) {
+							new Notice('Invalid start date format. Use YYYY-MM-DD');
+							return;
+						}
+						
+						this.plugin.settings.transactionSettings.customStartDate = value;
+						await this.plugin.saveSettings();
+					});
+			});
+
+		new Setting(customDateContainer)
+			.setName('End Date')
+			.setDesc('End date for custom sync range')
+			.addText(text => {
+				// Set current value if available
+				const currentValue = this.plugin.settings.transactionSettings.customEndDate;
+				if (currentValue) {
+					text.setValue(currentValue);
+				}
+				
+				text.setPlaceholder('YYYY-MM-DD')
+					.onChange(async (value) => {
+						// Validate and save end date
+						if (!value.trim()) {
+							this.plugin.settings.transactionSettings.customEndDate = '';
+							await this.plugin.saveSettings();
+							return;
+						}
+						
+						const date = new Date(value);
+						if (isNaN(date.getTime())) {
+							new Notice('Invalid end date format. Use YYYY-MM-DD');
+							return;
+						}
+						
+						this.plugin.settings.transactionSettings.customEndDate = value;
+						await this.plugin.saveSettings();
+					});
+			});
+	}
+
+	private hideCustomDateInputs(containerEl: HTMLElement) {
+		// Remove custom date inputs container if it exists
+		const customDateContainer = containerEl.querySelector('.custom-date-inputs');
+		if (customDateContainer) {
+			customDateContainer.remove();
+		}
+	}
+
+	private getSelectedDateRange(containerEl: HTMLElement) {
+		const dropdown = containerEl.querySelector('select');
+		const value = dropdown ? (dropdown as HTMLSelectElement).value : '';
+
+		switch (value) {
+			case 'today':
+				return { label: 'Today', start: new Date(), end: new Date() };
+			case 'week':
+				return { label: 'Last 7 Days', start: this.addDays(new Date(), -7), end: new Date() };
+			case 'month':
+				return { label: 'Last 30 Days', start: this.addDays(new Date(), -30), end: new Date() };
+			case 'custom':
+				// Get custom dates from settings
+				const startDateStr = this.plugin.settings.transactionSettings.customStartDate;
+				const endDateStr = this.plugin.settings.transactionSettings.customEndDate;
+				
+				if (!startDateStr || !endDateStr) {
+					new Notice('Please set both start and end dates for custom range');
+					return null;
+				}
+				
+				const startDate = new Date(startDateStr);
+				const endDate = new Date(endDateStr);
+				
+				if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+					new Notice('Invalid custom date range');
+					return null;
+				}
+				
+				if (startDate > endDate) {
+					new Notice('Start date must be before end date');
+					return null;
+				}
+				
+				return { 
+					label: `Custom (${startDateStr} to ${endDateStr})`, 
+					start: startDate, 
+					end: endDate 
+				};
+			default:
+				return null;
+		}
+	}
+
+	private addDays(date: Date, days: number): Date {
+		const result = new Date(date);
+		result.setDate(result.getDate() + days);
+		return result;
 	}
 }

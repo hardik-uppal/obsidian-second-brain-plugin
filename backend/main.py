@@ -19,6 +19,10 @@ from plaid.configuration import Configuration, Environment
 from plaid.api_client import ApiClient
 from plaid.exceptions import ApiException
 import datetime
+import json
+import sqlite3
+from pathlib import Path
+from decimal import Decimal
 
 # Load environment variables
 load_dotenv()
@@ -26,6 +30,60 @@ load_dotenv()
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Custom JSON encoder to handle date, datetime, and Decimal objects
+class PlaidJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (datetime.date, datetime.datetime)):
+            return obj.isoformat()
+        elif isinstance(obj, Decimal):
+            return float(obj)
+        elif hasattr(obj, 'to_dict'):
+            return obj.to_dict()
+        elif hasattr(obj, '__dict__'):
+            return obj.__dict__
+        return super().default(obj)
+
+# Initialize SQLite database for transaction storage
+DATABASE_PATH = "transaction_storage.db"
+
+def init_database():
+    """Initialize SQLite database for transaction batch storage"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    # Create transaction batches table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS transaction_batches (
+            id TEXT PRIMARY KEY,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            total_transactions INTEGER NOT NULL,
+            processed_transactions INTEGER DEFAULT 0,
+            start_date TEXT,
+            end_date TEXT,
+            error_message TEXT
+        )
+    """)
+    
+    # Create transactions table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS transactions (
+            id TEXT PRIMARY KEY,
+            batch_id TEXT NOT NULL,
+            transaction_data TEXT NOT NULL,
+            processed BOOLEAN DEFAULT FALSE,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (batch_id) REFERENCES transaction_batches (id)
+        )
+    """)
+    
+    conn.commit()
+    conn.close()
+    logger.info("Database initialized successfully")
+
+# Initialize database on startup
+init_database()
 
 app = FastAPI(
     title="Second Brain Plaid Proxy",
@@ -710,45 +768,401 @@ async def test_plaid():
                 "message": "Plaid SDK configured correctly",
                 "client_id": PLAID_CLIENT_ID[:8] + "...",  # Only show first 8 chars
                 "environment": PLAID_ENV,
-                "link_token_created": bool(link_token),
-                "response_type": str(type(response))
+                "test_link_token_created": bool(link_token)
             }
             
-        except Exception as sdk_error:
-            error_msg = handle_plaid_error(sdk_error)
-            logger.error(f"Plaid SDK test failed: {error_msg}")
+        except Exception as inner_e:
+            logger.error(f"Failed to test Plaid API call: {inner_e}")
             return {
-                "status": "error",
-                "message": "Plaid SDK test failed",
-                "error": error_msg,
+                "status": "warning",
+                "message": "Plaid client created but API test failed",
                 "client_id": PLAID_CLIENT_ID[:8] + "...",
-                "environment": PLAID_ENV
+                "environment": PLAID_ENV,
+                "api_error": str(inner_e)
             }
             
     except Exception as e:
-        logger.error(f"Plaid diagnostic test failed: {str(e)}")
+        logger.error(f"Plaid SDK test failed: {e}")
         return {
             "status": "error",
-            "message": "Failed to test Plaid configuration",
-            "error": str(e)
+            "message": f"Plaid SDK test failed: {str(e)}",
+            "environment": PLAID_ENV
         }
 
+# =====================================================
+# TRANSACTION BATCH STORAGE ENDPOINTS
+# =====================================================
 
+class TransactionBatchRequest(BaseModel):
+    start_date: str
+    end_date: str
+    access_token: str
+    credentials: PlaidCredentials
+
+class TransactionBatchResponse(BaseModel):
+    batch_id: str
+    status: str
+    total_transactions: int
+    message: str
+
+class BatchStatusResponse(BaseModel):
+    batch_id: str
+    status: str
+    total_transactions: int
+    processed_transactions: int
+    created_at: str
+    error_message: Optional[str] = None
+
+@app.post("/plaid/transactions/batch", response_model=TransactionBatchResponse)
+async def create_transaction_batch(request: TransactionBatchRequest):
+    """
+    Create a transaction batch for background processing
+    This endpoint fetches transactions and stores them for gradual processing
+    """
+    try:
+        logger.info(f"Creating transaction batch for date range: {request.start_date} to {request.end_date}")
+        
+        # Use credentials from request or environment
+        client_id = request.credentials.client_id or PLAID_CLIENT_ID
+        secret = request.credentials.secret or PLAID_SECRET
+        environment = request.credentials.environment or PLAID_ENV
+        
+        if not client_id or not secret:
+            raise HTTPException(status_code=400, detail="Plaid credentials not provided")
+        
+        # Create Plaid client
+        client = create_plaid_client(client_id, secret, environment)
+        
+        # Fetch transactions from Plaid
+        transactions_request = TransactionsGetRequest(
+            access_token=request.access_token,
+            start_date=datetime.datetime.strptime(request.start_date, '%Y-%m-%d').date(),
+            end_date=datetime.datetime.strptime(request.end_date, '%Y-%m-%d').date()
+        )
+        
+        response = client.transactions_get(transactions_request)
+        
+        # Debug: Log response type and structure
+        logger.info(f"Plaid response type: {type(response)}")
+        logger.info(f"Plaid response attributes: {dir(response) if hasattr(response, '__dict__') else 'No attributes'}")
+        
+        # Handle response based on SDK version - could be dict or object
+        transactions = None
+        if hasattr(response, 'transactions'):
+            logger.info("Accessing transactions via response.transactions")
+            transactions = response.transactions
+        elif isinstance(response, dict) and 'transactions' in response:
+            logger.info("Accessing transactions via response['transactions']")
+            transactions = response['transactions']
+        else:
+            # Try to access as attribute first, then as dict
+            try:
+                logger.info("Trying response.transactions as fallback")
+                transactions = response.transactions
+            except AttributeError:
+                try:
+                    logger.info("Trying response['transactions'] as fallback")
+                    transactions = response['transactions']
+                except (KeyError, TypeError) as e:
+                    logger.error(f"Could not access transactions from response: {e}")
+                    logger.error(f"Response content: {response}")
+                    raise ValueError(f"Could not access transactions from Plaid response: {e}")
+        
+        if transactions is None:
+            raise ValueError("No transactions found in Plaid response")
+            
+        logger.info(f"Found {len(transactions)} transactions")
+        if len(transactions) > 0:
+            logger.info(f"First transaction type: {type(transactions[0])}")
+            logger.info(f"First transaction attributes: {dir(transactions[0]) if hasattr(transactions[0], '__dict__') else 'No attributes'}")
+        
+        # Generate batch ID
+        batch_id = f"batch_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{len(transactions)}"
+        
+        # Store batch in database
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        # Insert batch record
+        cursor.execute("""
+            INSERT INTO transaction_batches 
+            (id, status, created_at, total_transactions, start_date, end_date)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            batch_id,
+            'pending',
+            datetime.datetime.now().isoformat(),
+            len(transactions),
+            request.start_date,
+            request.end_date
+        ))
+        
+        # Insert individual transactions (with deduplication)
+        new_transactions = 0
+        duplicate_transactions = 0
+        
+        for transaction in transactions:
+            # Convert Plaid transaction object to dictionary for JSON serialization
+            try:
+                if hasattr(transaction, 'to_dict'):
+                    logger.info(f"Converting transaction using to_dict() method")
+                    transaction_dict = transaction.to_dict()
+                elif hasattr(transaction, '__dict__'):
+                    logger.info(f"Converting transaction using __dict__")
+                    transaction_dict = dict(transaction.__dict__)
+                elif isinstance(transaction, dict):
+                    logger.info(f"Transaction is already a dict")
+                    transaction_dict = transaction
+                else:
+                    logger.info(f"Converting transaction using dict() constructor")
+                    transaction_dict = dict(transaction)
+                
+                transaction_id = transaction_dict.get('transaction_id')
+                logger.info(f"Processing transaction ID: {transaction_id}")
+                
+                if not transaction_id:
+                    logger.error(f"No transaction_id found in transaction_dict keys: {list(transaction_dict.keys())}")
+                    continue
+                
+                # Debug: Log transaction_dict structure for the first transaction
+                if new_transactions == 0:
+                    logger.info(f"Sample transaction_dict keys: {list(transaction_dict.keys())}")
+                    logger.info(f"Sample transaction_dict types: {[(k, type(v)) for k, v in transaction_dict.items()]}")
+                
+            except Exception as conversion_error:
+                logger.error(f"Failed to convert transaction to dict: {conversion_error}")
+                logger.error(f"Transaction type: {type(transaction)}")
+                logger.error(f"Transaction content: {transaction}")
+                continue
+            
+            # Check if transaction already exists
+            cursor.execute("""
+                SELECT id FROM transactions WHERE id = ?
+            """, (transaction_id,))
+            
+            if cursor.fetchone():
+                duplicate_transactions += 1
+                logger.info(f"Skipping duplicate transaction: {transaction_id}")
+                continue
+            
+            cursor.execute("""
+                INSERT INTO transactions 
+                (id, batch_id, transaction_data, created_at)
+                VALUES (?, ?, ?, ?)
+            """, (
+                transaction_id,
+                batch_id,
+                json.dumps(transaction_dict, cls=PlaidJSONEncoder),
+                datetime.datetime.now().isoformat()
+            ))
+            new_transactions += 1
+        
+        # Update batch with actual new transaction count
+        cursor.execute("""
+            UPDATE transaction_batches 
+            SET total_transactions = ?
+            WHERE id = ?
+        """, (new_transactions, batch_id))
+        
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"Created batch {batch_id} with {new_transactions} new transactions ({duplicate_transactions} duplicates skipped)")
+        
+        return TransactionBatchResponse(
+            batch_id=batch_id,
+            status='pending',
+            total_transactions=new_transactions,
+            message=f"Batch created successfully with {new_transactions} new transactions ({duplicate_transactions} duplicates skipped)"
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to create transaction batch: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create transaction batch: {str(e)}")
+
+@app.get("/plaid/transactions/batch/{batch_id}/status", response_model=BatchStatusResponse)
+async def get_batch_status(batch_id: str):
+    """Get the status of a transaction batch"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT id, status, total_transactions, processed_transactions, created_at, error_message
+            FROM transaction_batches
+            WHERE id = ?
+        """, (batch_id,))
+        
+        row = cursor.fetchone()
+        conn.close()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+        
+        return BatchStatusResponse(
+            batch_id=row[0],
+            status=row[1],
+            total_transactions=row[2],
+            processed_transactions=row[3],
+            created_at=row[4],
+            error_message=row[5]
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to get batch status: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get batch status: {str(e)}")
+
+@app.get("/plaid/transactions/batch/{batch_id}/transactions")
+async def get_batch_transactions(batch_id: str, limit: int = 50, offset: int = 0, processed: Optional[bool] = None):
+    """Get transactions from a batch with pagination"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        # Build query based on processed filter
+        if processed is not None:
+            cursor.execute("""
+                SELECT id, transaction_data, processed, created_at
+                FROM transactions
+                WHERE batch_id = ? AND processed = ?
+                ORDER BY created_at
+                LIMIT ? OFFSET ?
+            """, (batch_id, processed, limit, offset))
+        else:
+            cursor.execute("""
+                SELECT id, transaction_data, processed, created_at
+                FROM transactions
+                WHERE batch_id = ?
+                ORDER BY created_at
+                LIMIT ? OFFSET ?
+            """, (batch_id, limit, offset))
+        
+        rows = cursor.fetchall()
+        conn.close()
+        
+        transactions = []
+        for row in rows:
+            transaction_data = json.loads(row[1])
+            transactions.append({
+                'id': row[0],
+                'data': transaction_data,
+                'processed': bool(row[2]),
+                'created_at': row[3]
+            })
+        
+        return {
+            'batch_id': batch_id,
+            'transactions': transactions,
+            'limit': limit,
+            'offset': offset,
+            'count': len(transactions)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get batch transactions: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get batch transactions: {str(e)}")
+
+@app.post("/plaid/transactions/batch/{batch_id}/mark-processed")
+async def mark_transactions_processed(batch_id: str, transaction_ids: List[str]):
+    """Mark specific transactions as processed"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        # Mark transactions as processed
+        for transaction_id in transaction_ids:
+            cursor.execute("""
+                UPDATE transactions 
+                SET processed = TRUE 
+                WHERE batch_id = ? AND id = ?
+            """, (batch_id, transaction_id))
+        
+        # Update batch processed count
+        cursor.execute("""
+            UPDATE transaction_batches 
+            SET processed_transactions = (
+                SELECT COUNT(*) FROM transactions 
+                WHERE batch_id = ? AND processed = TRUE
+            )
+            WHERE id = ?
+        """, (batch_id, batch_id))
+        
+        # Check if batch is complete
+        cursor.execute("""
+            SELECT total_transactions, processed_transactions 
+            FROM transaction_batches 
+            WHERE id = ?
+        """, (batch_id,))
+        
+        row = cursor.fetchone()
+        if row and row[0] == row[1]:  # total == processed
+            cursor.execute("""
+                UPDATE transaction_batches 
+                SET status = 'completed' 
+                WHERE id = ?
+            """, (batch_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return {
+            'batch_id': batch_id,
+            'marked_processed': len(transaction_ids),
+            'message': f'Marked {len(transaction_ids)} transactions as processed'
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to mark transactions as processed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to mark transactions as processed: {str(e)}")
+
+@app.get("/plaid/transactions/batches")
+async def list_transaction_batches(status: Optional[str] = None, limit: int = 20):
+    """List transaction batches with optional status filter"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        if status:
+            cursor.execute("""
+                SELECT id, status, total_transactions, processed_transactions, created_at, start_date, end_date
+                FROM transaction_batches
+                WHERE status = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+            """, (status, limit))
+        else:
+            cursor.execute("""
+                SELECT id, status, total_transactions, processed_transactions, created_at, start_date, end_date
+                FROM transaction_batches
+                ORDER BY created_at DESC
+                LIMIT ?
+            """, (limit,))
+        
+        rows = cursor.fetchall()
+        conn.close()
+        
+        batches = []
+        for row in rows:
+            batches.append({
+                'batch_id': row[0],
+                'status': row[1],
+                'total_transactions': row[2],
+                'processed_transactions': row[3],
+                'created_at': row[4],
+                'start_date': row[5],
+                'end_date': row[6],
+                'progress_percentage': (row[3] / row[2] * 100) if row[2] > 0 else 0
+            })
+        
+        return {
+            'batches': batches,
+            'count': len(batches)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to list transaction batches: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to list transaction batches: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
-    
-    port = int(os.getenv("PORT", 8000))
-    host = os.getenv("HOST", "localhost")
-    
-    logger.info(f"Starting Second Brain Plaid Proxy on {host}:{port}")
-    logger.info(f"Plaid Environment: {PLAID_ENV}")
-    logger.info(f"Plaid Client ID configured: {bool(PLAID_CLIENT_ID)}")
-    
-    uvicorn.run(
-        "main:app",
-        host=host,
-        port=port,
-        reload=True,
-        log_level="info"
-    )
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")

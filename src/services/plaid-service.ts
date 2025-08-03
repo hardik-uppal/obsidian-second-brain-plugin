@@ -200,6 +200,171 @@ export class PlaidService {
 		}
 	}
 
+	// =====================================================
+	// BATCH PROCESSING METHODS
+	// =====================================================
+
+	/**
+	 * Create a transaction batch for background processing
+	 */
+	async createTransactionBatch(startDate: string, endDate: string): Promise<string> {
+		try {
+			console.log(`Creating transaction batch for ${startDate} to ${endDate}`);
+			
+			if (!this.settings.plaidAccessToken) {
+				throw new Error('No access token available');
+			}
+
+			// Use FastAPI backend for batch creation
+			const backendUrl = 'http://localhost:8000';
+			
+			const response = await fetch(`${backendUrl}/plaid/transactions/batch`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					start_date: startDate,
+					end_date: endDate,
+					access_token: this.settings.plaidAccessToken,
+					credentials: {
+						client_id: this.settings.plaidClientId || "",
+						secret: "", // Will use backend environment variable
+						environment: this.settings.plaidEnvironment
+					}
+				})
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(`Backend API error: ${errorData.detail || response.statusText}`);
+			}
+
+			const data = await response.json();
+			console.log(`Created transaction batch: ${data.batch_id} with ${data.total_transactions} transactions`);
+			
+			return data.batch_id;
+		} catch (error) {
+			console.error('Failed to create transaction batch:', error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Get batch status
+	 */
+	async getBatchStatus(batchId: string): Promise<any> {
+		try {
+			const backendUrl = 'http://localhost:8000';
+			
+			const response = await fetch(`${backendUrl}/plaid/transactions/batch/${batchId}/status`, {
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+				}
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(`Backend API error: ${errorData.detail || response.statusText}`);
+			}
+
+			return await response.json();
+		} catch (error) {
+			console.error('Failed to get batch status:', error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Get transactions from a batch with pagination
+	 */
+	async getBatchTransactions(batchId: string, limit: number = 50, offset: number = 0, processed?: boolean): Promise<any> {
+		try {
+			const backendUrl = 'http://localhost:8000';
+			
+			let url = `${backendUrl}/plaid/transactions/batch/${batchId}/transactions?limit=${limit}&offset=${offset}`;
+			if (processed !== undefined) {
+				url += `&processed=${processed}`;
+			}
+			
+			const response = await fetch(url, {
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+				}
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(`Backend API error: ${errorData.detail || response.statusText}`);
+			}
+
+			return await response.json();
+		} catch (error) {
+			console.error('Failed to get batch transactions:', error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Mark transactions as processed
+	 */
+	async markTransactionsProcessed(batchId: string, transactionIds: string[]): Promise<any> {
+		try {
+			const backendUrl = 'http://localhost:8000';
+			
+			const response = await fetch(`${backendUrl}/plaid/transactions/batch/${batchId}/mark-processed`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify(transactionIds)
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(`Backend API error: ${errorData.detail || response.statusText}`);
+			}
+
+			return await response.json();
+		} catch (error) {
+			console.error('Failed to mark transactions as processed:', error);
+			throw error;
+		}
+	}
+
+	/**
+	 * List all transaction batches
+	 */
+	async listTransactionBatches(status?: string, limit: number = 20): Promise<any> {
+		try {
+			const backendUrl = 'http://localhost:8000';
+			
+			let url = `${backendUrl}/plaid/transactions/batches?limit=${limit}`;
+			if (status) {
+				url += `&status=${status}`;
+			}
+			
+			const response = await fetch(url, {
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+				}
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(`Backend API error: ${errorData.detail || response.statusText}`);
+			}
+
+			return await response.json();
+		} catch (error) {
+			console.error('Failed to list transaction batches:', error);
+			throw error;
+		}
+	}
+
 	// OAuth flow helpers - Using FastAPI backend proxy
 	async generateLinkToken(userId?: string, countryCodes: string[] = ['US']): Promise<string> {
 		try {
