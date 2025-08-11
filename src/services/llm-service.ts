@@ -297,6 +297,151 @@ export class IntelligenceBrokerService {
 	}
 
 	// ===========================================
+	// NOTE CONTENT ENHANCEMENT FUNCTIONALITY
+	// ===========================================
+
+	/**
+	 * Enhance an existing note's content with LLM analysis
+	 */
+	async enhanceNoteContent(notePath: string): Promise<LLMSuggestion> {
+		console.log(`🔍 IntelligenceBrokerService: Enhancing note content: ${notePath}`);
+		
+		// Read the note file
+		const file = this.app.vault.getAbstractFileByPath(notePath);
+		if (!file || !(file instanceof TFile)) {
+			throw new Error(`Note not found: ${notePath}`);
+		}
+
+		const content = await this.app.vault.read(file);
+		const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter || {};
+		
+		// Build note data for LLM analysis
+		const noteData = {
+			path: notePath,
+			title: file.basename,
+			content: content,
+			frontmatter: frontmatter,
+			tags: this.extractTagsFromContent(content, frontmatter),
+			wordCount: content.split(/\s+/).length,
+			lastModified: file.stat.mtime
+		};
+
+		// Generate LLM enhancement
+		const prompt = this.buildNoteEnhancementPrompt(noteData);
+		const request: LLMRequest = {
+			prompt,
+			data: noteData,
+			type: 'note-enhancement'
+		};
+
+		const response = await this.callLLM(request);
+		if (!response.success) {
+			throw new Error(`Note enhancement failed: ${response.error}`);
+		}
+
+		return this.convertNoteResponseToSuggestion(noteData, response.data);
+	}
+
+	/**
+	 * Batch enhance multiple notes
+	 */
+	async enhanceMultipleNotes(notePaths: string[]): Promise<LLMSuggestion[]> {
+		console.log(`🔄 IntelligenceBrokerService: Enhancing ${notePaths.length} notes...`);
+		
+		const suggestions: LLMSuggestion[] = [];
+		
+		for (const notePath of notePaths) {
+			try {
+				const suggestion = await this.enhanceNoteContent(notePath);
+				suggestions.push(suggestion);
+				console.log(`✅ Enhanced note: ${notePath}`);
+			} catch (error) {
+				console.error(`❌ Failed to enhance note ${notePath}:`, error);
+				// Create a minimal suggestion to track the failure
+				suggestions.push({
+					id: this.generateSuggestionId(),
+					type: 'note-enhancement',
+					sourceId: notePath,
+					timestamp: new Date().toISOString(),
+					status: 'rejected',
+					priority: 'low',
+					originalData: {
+						title: this.getNoteTitleFromPath(notePath),
+						type: 'note-enhancement',
+						summary: `Failed to enhance note: ${error.message}`
+					},
+					suggestions: {},
+					confidence: 0,
+					targetNotePath: notePath
+				});
+			}
+		}
+
+		return suggestions;
+	}
+
+	/**
+	 * Search for notes that could benefit from enhancement
+	 */
+	async findNotesForEnhancement(criteria?: {
+		maxNotes?: number;
+		excludeTags?: string[];
+		includeFolders?: string[];
+		excludeFolders?: string[];
+		minWordCount?: number;
+		maxWordCount?: number;
+		modifiedSince?: Date;
+	}): Promise<string[]> {
+		const allFiles = this.app.vault.getMarkdownFiles();
+		const candidates: string[] = [];
+
+		for (const file of allFiles) {
+			// Apply filtering criteria
+			if (criteria?.excludeFolders?.some(folder => file.path.startsWith(folder))) {
+				continue;
+			}
+
+			if (criteria?.includeFolders && !criteria.includeFolders.some(folder => file.path.startsWith(folder))) {
+				continue;
+			}
+
+			if (criteria?.modifiedSince && file.stat.mtime < criteria.modifiedSince.getTime()) {
+				continue;
+			}
+
+			try {
+				const content = await this.app.vault.read(file);
+				const wordCount = content.split(/\s+/).length;
+
+				if (criteria?.minWordCount && wordCount < criteria.minWordCount) {
+					continue;
+				}
+
+				if (criteria?.maxWordCount && wordCount > criteria.maxWordCount) {
+					continue;
+				}
+
+				const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter || {};
+				const tags = this.extractTagsFromContent(content, frontmatter);
+
+				if (criteria?.excludeTags?.some(tag => tags.includes(tag))) {
+					continue;
+				}
+
+				candidates.push(file.path);
+
+				if (criteria?.maxNotes && candidates.length >= criteria.maxNotes) {
+					break;
+				}
+			} catch (error) {
+				console.warn(`Error reading file ${file.path}:`, error);
+			}
+		}
+
+		return candidates;
+	}
+
+	// ===========================================
 	// EVENT ENHANCEMENT FUNCTIONALITY
 	// ===========================================
 
@@ -1019,6 +1164,87 @@ Return suggestions as JSON array:
 	}
 
 	/**
+	 * Build note enhancement prompt
+	 */
+	private buildNoteEnhancementPrompt(noteData: any): string {
+		return `Analyze this note and suggest enhancements for better organization, insights, and knowledge management:
+
+Note Details:
+- Title: ${noteData.title}
+- Path: ${noteData.path}
+- Word Count: ${noteData.wordCount}
+- Current Tags: ${noteData.tags.join(', ') || 'No tags'}
+- Last Modified: ${new Date(noteData.lastModified).toLocaleDateString()}
+
+Content:
+${noteData.content}
+
+Please analyze this note and suggest:
+1. Better tags for organization (3-7 tags maximum)
+2. Key insights or themes identified
+3. Action items mentioned or implied
+4. Potential connections to other topics
+5. Content improvements or additions
+6. Priority level for further development
+7. Suggested note type/category
+
+Return as JSON:
+{
+  "tags": ["improved", "tag", "suggestions"],
+  "insights": ["key insight 1", "key insight 2"],
+  "actionItems": ["action item 1", "action item 2"],
+  "connections": ["related topic 1", "related topic 2"],
+  "improvements": "Specific suggestions for improving the note content",
+  "summary": "Brief summary of what this note is about",
+  "noteType": "meeting-notes|project|idea|reference|journal|general",
+  "priority": "high|medium|low",
+  "confidence": 0.85,
+  "metadata": {
+    "readabilityScore": "high|medium|low",
+    "completeness": "complete|partial|outline",
+    "actionable": true,
+    "needsWork": false
+  }
+}`;
+	}
+
+	/**
+	 * Convert note response to suggestion
+	 */
+	private convertNoteResponseToSuggestion(noteData: any, responseData: any): LLMSuggestion {
+		return {
+			id: this.generateSuggestionId(),
+			type: 'note-enhancement',
+			sourceId: noteData.path,
+			timestamp: new Date().toISOString(),
+			status: 'pending',
+			priority: responseData.priority || 'medium',
+			originalData: {
+				title: noteData.title,
+				type: 'note-enhancement',
+				summary: `Enhancement suggestions for: ${noteData.title}`
+			},
+			suggestions: {
+				tags: responseData.tags || [],
+				actionItems: responseData.actionItems || [],
+				insights: responseData.insights?.join('\n') || '',
+				relationships: responseData.connections || [],
+				summary: responseData.summary,
+				noteContent: responseData.improvements,
+				noteType: responseData.noteType,
+				metadata: {
+					...responseData.metadata,
+					wordCount: noteData.wordCount,
+					lastModified: new Date(noteData.lastModified).toISOString(),
+					originalTags: noteData.tags
+				}
+			},
+			confidence: responseData.confidence || 0.8,
+			targetNotePath: noteData.path
+		};
+	}
+
+	/**
 	 * Build event enhancement prompt
 	 */
 	private buildEventEnhancementPrompt(event: CalendarEvent): string {
@@ -1270,6 +1496,43 @@ tags: [chat, second-brain]
 		content += `\n---\n*Chat session ended at ${endTime.toLocaleString()}*\n`;
 		
 		return content;
+	}
+
+	/**
+	 * Extract tags from note content and frontmatter
+	 */
+	private extractTagsFromContent(content: string, frontmatter: any): string[] {
+		const tags: string[] = [];
+		
+		// Get tags from frontmatter
+		if (frontmatter.tags) {
+			if (Array.isArray(frontmatter.tags)) {
+				tags.push(...frontmatter.tags);
+			} else if (typeof frontmatter.tags === 'string') {
+				tags.push(frontmatter.tags);
+			}
+		}
+		
+		// Get inline tags from content
+		const inlineTags = content.match(/#[\w-]+/g) || [];
+		tags.push(...inlineTags.map(tag => tag.substring(1))); // Remove # prefix
+		
+		return [...new Set(tags)]; // Remove duplicates
+	}
+
+	/**
+	 * Get note title from file path
+	 */
+	private getNoteTitleFromPath(filePath: string): string {
+		const file = this.app.vault.getAbstractFileByPath(filePath);
+		if (file && file instanceof TFile) {
+			return file.basename;
+		}
+		
+		// Fallback: extract filename from path
+		const pathParts = filePath.split('/');
+		const fileName = pathParts[pathParts.length - 1];
+		return fileName.replace(/\.md$/, '');
 	}
 
 	/**

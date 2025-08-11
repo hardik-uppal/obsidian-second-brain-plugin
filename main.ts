@@ -8,9 +8,12 @@ import { MasterCalendarService } from './src/services/master-calendar-service';
 import { SuggestionManagementService } from './src/services/suggestion-management-service';
 import { TransactionProcessingService } from './src/services/transaction-processing-service';
 import { EventTemplateService } from './src/services/event-template-service';
+import { NoteLinkingService } from './src/services/note-linking-service';
+import { LinkingSuggestionIntegrationService } from './src/services/linking-suggestion-integration-service';
 import { TemplateEngine, TemplateDataProcessor } from './src/utils/templates';
 import { ChatView, CHAT_VIEW_TYPE } from './src/ui/ChatView';
 import { CalendarView, CALENDAR_VIEW_TYPE } from './src/ui/CalendarView';
+import { SuggestionApprovalView, SUGGESTION_APPROVAL_VIEW_TYPE } from './src/ui/SuggestionApprovalView';
 
 export default class SecondBrainPlugin extends Plugin {
 	settings: PluginSettings;
@@ -25,6 +28,8 @@ export default class SecondBrainPlugin extends Plugin {
 	suggestionManagementService: SuggestionManagementService;
 	transactionService: TransactionProcessingService;
 	eventTemplateService: EventTemplateService;
+	noteLinkingService: NoteLinkingService;
+	linkingIntegrationService: LinkingSuggestionIntegrationService;
 
 	async onload() {
 		await this.loadSettings();
@@ -46,12 +51,21 @@ export default class SecondBrainPlugin extends Plugin {
 		// Initialize suggestion management service
 		await this.suggestionManagementService.initialize();
 
+		// Set up view refresh callback for suggestion management service
+		this.suggestionManagementService.setViewRefreshCallback(async () => {
+			await this.refreshSuggestionView();
+		});
+
 		// Initialize transaction processing service
 		await this.transactionService.initialize();
+
+		// Initialize linking integration service
+		await this.linkingIntegrationService.initialize();
 
 		// Register views
 		this.registerView(CHAT_VIEW_TYPE, (leaf) => new ChatView(leaf, this));
 		this.registerView(CALENDAR_VIEW_TYPE, (leaf) => new CalendarView(leaf, this.masterCalendarService));
+		this.registerView(SUGGESTION_APPROVAL_VIEW_TYPE, (leaf) => new SuggestionApprovalView(leaf, this.suggestionManagementService));
 
 		// Add ribbon icon for main plugin
 		const ribbonIconEl = this.addRibbonIcon('brain', 'Second Brain Integration', (evt: MouseEvent) => {
@@ -71,6 +85,12 @@ export default class SecondBrainPlugin extends Plugin {
 		});
 		calendarRibbonIconEl.addClass('second-brain-calendar-ribbon-class');
 
+		// Add ribbon icon for suggestions (try different icon names)
+		const suggestionsRibbonIconEl = this.addRibbonIcon('lightbulb', 'Open AI Suggestions', (evt: MouseEvent) => {
+			this.activateSuggestionView();
+		});
+		suggestionsRibbonIconEl.addClass('second-brain-suggestions-ribbon-class');
+
 		// Add status bar item
 		const statusBarItemEl = this.addStatusBarItem();
 		statusBarItemEl.setText('Second Brain: Ready');
@@ -81,6 +101,9 @@ export default class SecondBrainPlugin extends Plugin {
 		// Add settings tab
 		this.addSettingTab(new SecondBrainSettingTab(this.app, this));
 
+		// Load CSS styles
+		this.loadStyles();
+
 		// Initialize vault if needed
 		await this.checkAndInitializeVault();
 
@@ -88,7 +111,74 @@ export default class SecondBrainPlugin extends Plugin {
 	}
 
 	onunload() {
+		// Remove injected CSS
+		const styleElements = [
+			'second-brain-suggestion-styles',
+			'second-brain-styles'
+		];
+		
+		styleElements.forEach(id => {
+			const element = document.getElementById(id);
+			if (element) {
+				element.remove();
+			}
+		});
+		
 		console.log('Second Brain Integration plugin unloaded');
+	}
+
+	/**
+	 * Load CSS stylesheets for the plugin
+	 */
+	private loadStyles(): void {
+		// Load main styles
+		this.app.workspace.onLayoutReady(() => {
+			// Load suggestion-styles.css using the plugin's manifest directory
+			const manifestDir = (this.app.vault.adapter as any).basePath + '/.obsidian/plugins/obsidian-second-brain-plugin';
+			
+			// Method 1: Try to load via fetch and inject
+			this.loadCSSFile('suggestion-styles.css');
+			this.loadCSSFile('styles.css');
+			
+			console.log('Second Brain CSS styles loaded');
+		});
+	}
+
+	/**
+	 * Load a CSS file and inject it into the document head
+	 */
+	private async loadCSSFile(fileName: string): Promise<void> {
+		try {
+			// Use the plugin directory path
+			const cssPath = `.obsidian/plugins/obsidian-second-brain-plugin/${fileName}`;
+			const cssContent = await this.app.vault.adapter.read(cssPath);
+			
+			// Create style element and inject CSS
+			const styleEl = document.createElement('style');
+			styleEl.id = `second-brain-${fileName.replace('.css', '')}`;
+			styleEl.textContent = cssContent;
+			document.head.appendChild(styleEl);
+			
+			console.log(`Loaded CSS file: ${fileName}`);
+		} catch (error) {
+			console.error(`Failed to load CSS file ${fileName}:`, error);
+		}
+	}
+
+	/**
+	 * Helper method to extract note title from file path
+	 */
+	private getNoteTitleFromPath(filePath: string): string {
+		// Get the file from vault
+		const file = this.app.vault.getAbstractFileByPath(filePath);
+		if (file && file instanceof TFile) {
+			return file.basename;
+		}
+		
+		// Fallback: extract filename from path
+		const pathParts = filePath.split('/');
+		const fileName = pathParts[pathParts.length - 1];
+		return fileName.replace(/\.md$/, '');
 	}
 
 	private initializeServices(): void {
@@ -101,6 +191,16 @@ export default class SecondBrainPlugin extends Plugin {
 		this.calendarService = new CalendarService(this.settings);
 		this.masterCalendarService = new MasterCalendarService(this.app, this.settings);
 		this.suggestionManagementService = new SuggestionManagementService(this.app, this.settings, this.intelligenceBrokerService);
+		
+		// Initialize note linking services
+		this.noteLinkingService = new NoteLinkingService(this.app, this.settings);
+		this.linkingIntegrationService = new LinkingSuggestionIntegrationService(
+			this.app,
+			this.settings,
+			this.noteLinkingService,
+			this.suggestionManagementService,
+			this.intelligenceBrokerService
+		);
 		
 		// Initialize event template service
 		this.eventTemplateService = new EventTemplateService(this.app, this.settings);
@@ -250,6 +350,15 @@ export default class SecondBrainPlugin extends Plugin {
 			}
 		});
 
+		// Open suggestions view command
+		this.addCommand({
+			id: 'open-suggestions',
+			name: 'Open AI Suggestions',
+			callback: async () => {
+				await this.activateSuggestionView();
+			}
+		});
+
 		// Sync calendars command
 		this.addCommand({
 			id: 'sync-calendars',
@@ -289,6 +398,62 @@ export default class SecondBrainPlugin extends Plugin {
 				} catch (error: any) {
 					console.error('Diagnostics command failed:', error);
 					new Notice(`Diagnostics failed: ${error?.message || 'Unknown error'}`, 5000);
+				}
+			}
+		});
+
+		// Analyze existing links for retroactive rules
+		this.addCommand({
+			id: 'analyze-existing-links',
+			name: 'Analyze Existing Links for Rules',
+			callback: async () => {
+				try {
+					new Notice('Analyzing existing links...', 2000);
+					const results = await this.noteLinkingService.analyzeExistingLinks();
+					
+					const summary = `Link Analysis Complete:
+					
+📊 ${results.analyzed} links analyzed
+✅ ${results.updated} files updated with reasons
+					
+Rules found:
+${Object.entries(results.rules)
+	.map(([rule, count]) => `• ${rule}: ${count}`)
+	.join('\n')}`;
+					
+					new Notice(summary, 8000);
+					console.log('Link analysis results:', results);
+				} catch (error: any) {
+					console.error('Link analysis failed:', error);
+					new Notice(`Analysis failed: ${error?.message || 'Unknown error'}`, 5000);
+				}
+			}
+		});
+
+		// Force re-analyze existing links (updates even links that already have reasons)
+		this.addCommand({
+			id: 'force-reanalyze-existing-links',
+			name: 'Force Re-analyze All Links (Update Existing Reasons)',
+			callback: async () => {
+				try {
+					new Notice('Force re-analyzing ALL links...', 2000);
+					const results = await this.noteLinkingService.analyzeExistingLinks(true); // Pass force flag
+					
+					const summary = `Force Re-Analysis Complete:
+					
+📊 ${results.analyzed} links analyzed
+✅ ${results.updated} files updated with new reasons
+					
+Rules found:
+${Object.entries(results.rules)
+	.map(([rule, count]) => `• ${rule}: ${count}`)
+	.join('\n')}`;
+					
+					new Notice(summary, 8000);
+					console.log('Force re-analysis results:', results);
+				} catch (error: any) {
+					console.error('Force re-analysis failed:', error);
+					new Notice(`Force re-analysis failed: ${error?.message || 'Unknown error'}`, 5000);
 				}
 			}
 		});
@@ -333,6 +498,576 @@ export default class SecondBrainPlugin extends Plugin {
 				
 				new Notice(message, 15000);
 				console.log('Calendar Sync Diagnostics:', diagnostics, details);
+			}
+		});
+
+		// Note linking commands
+		this.addCommand({
+			id: 'analyze-note-links',
+			name: 'Analyze Current Note for Links',
+			callback: async () => {
+				const activeFile = this.app.workspace.getActiveFile();
+				if (!activeFile) {
+					new Notice('No active note to analyze');
+					return;
+				}
+
+				try {
+					const result = await this.noteLinkingService.analyzeNote(activeFile.path);
+					
+					let message = `## Link Analysis for ${activeFile.basename}\n\n`;
+					message += `🔗 Auto-applied links: ${result.autoAppliedLinks.length}\n`;
+					message += `⏳ Suggestions for review: ${result.queuedForReview.length}\n`;
+					message += `❌ Low confidence: ${result.rejected.length}\n\n`;
+					
+					if (result.autoAppliedLinks.length > 0) {
+						message += `**Auto-applied:**\n`;
+						result.autoAppliedLinks.forEach(link => {
+							message += `- ${link.linkType}: ${this.getNoteTitleFromPath(link.targetNotePath)} (${Math.round(link.confidence * 100)}%)\n`;
+						});
+						message += `\n`;
+					}
+					
+					if (result.queuedForReview.length > 0) {
+						message += `**For review:**\n`;
+						result.queuedForReview.forEach(link => {
+							message += `- ${link.linkType}: ${this.getNoteTitleFromPath(link.targetNotePath)} (${Math.round(link.confidence * 100)}%)\n`;
+						});
+					}
+					
+					new Notice(message, 10000);
+					console.log('Link Analysis Result:', result);
+				} catch (error) {
+					new Notice(`Failed to analyze note: ${error}`);
+					console.error('Link analysis failed:', error);
+				}
+			}
+		});
+
+		this.addCommand({
+			id: 'refresh-linking-indices',
+			name: 'Refresh Note Linking Indices',
+			callback: async () => {
+				try {
+					new Notice('Refreshing note linking indices...');
+					await this.linkingIntegrationService.refreshIndices();
+					new Notice('Note linking indices refreshed successfully');
+				} catch (error) {
+					new Notice(`Failed to refresh indices: ${error}`);
+					console.error('Index refresh failed:', error);
+				}
+			}
+		});
+
+		// Enhancement Queue Commands
+		this.addCommand({
+			id: 'process-enhancement-queue',
+			name: 'Process Note Enhancement Queue',
+			callback: async () => {
+				try {
+					await this.linkingIntegrationService.processEnhancementQueue();
+				} catch (error) {
+					new Notice(`Enhancement processing failed: ${error}`);
+					console.error('Enhancement queue processing failed:', error);
+				}
+			}
+		});
+
+		this.addCommand({
+			id: 'view-enhancement-queue-status',
+			name: 'View Enhancement Queue Status',
+			callback: async () => {
+				try {
+					const status = this.linkingIntegrationService.getEnhancementQueueStatus();
+					
+					let message = `## Enhancement Queue Status\n\n`;
+					message += `📋 **Queued**: ${status.queued}\n`;
+					message += `⚙️ **Processing**: ${status.processing}\n`;
+					message += `✅ **Completed**: ${status.completed}\n`;
+					message += `❌ **Failed**: ${status.failed}\n`;
+					message += `📊 **Total**: ${status.total}\n\n`;
+					
+					if (status.queued > 0) {
+						message += `💡 Use "Process Note Enhancement Queue" to process queued notes.`;
+					} else if (status.total === 0) {
+						message += `💡 No notes in queue. Notes are automatically queued when created from calendar/transaction sync.`;
+					} else {
+						message += `✨ All notes have been processed!`;
+					}
+					
+					new Notice(message, 8000);
+					console.log('Enhancement Queue Status:', status);
+				} catch (error) {
+					new Notice(`Failed to get queue status: ${error}`);
+					console.error('Queue status failed:', error);
+				}
+			}
+		});
+
+		this.addCommand({
+			id: 'clear-completed-from-queue',
+			name: 'Clear Completed Items from Enhancement Queue',
+			callback: async () => {
+				try {
+					await this.linkingIntegrationService.clearCompletedFromQueue();
+				} catch (error) {
+					new Notice(`Failed to clear completed items: ${error}`);
+					console.error('Clear completed failed:', error);
+				}
+			}
+		});
+
+		// LLM Note Enhancement Commands
+		this.addCommand({
+			id: 'enhance-current-note',
+			name: 'Enhance Current Note with LLM',
+			callback: async () => {
+				const activeFile = this.app.workspace.getActiveFile();
+				if (!activeFile) {
+					new Notice('No active note to enhance');
+					return;
+				}
+
+				try {
+					new Notice('Analyzing note with LLM...');
+					const suggestion = await this.intelligenceBrokerService.enhanceNoteContent(activeFile.path);
+					
+					// Add suggestion to management system
+					await this.suggestionManagementService.addSuggestion(suggestion);
+					
+					// Refresh the suggestion view to show the new suggestion
+					await this.refreshSuggestionView();
+					
+					new Notice(`✅ Note enhancement completed! Check AI Suggestions view for results.`);
+					
+					// Optionally open suggestions view
+					await this.activateSuggestionView();
+				} catch (error) {
+					new Notice(`Failed to enhance note: ${error.message}`);
+					console.error('Note enhancement failed:', error);
+				}
+			}
+		});
+
+		this.addCommand({
+			id: 'enhance-notes-in-folder',
+			name: 'Enhance All Notes in Current Folder',
+			callback: async () => {
+				const activeFile = this.app.workspace.getActiveFile();
+				if (!activeFile) {
+					new Notice('Open a note in the folder you want to enhance');
+					return;
+				}
+
+				const folderPath = activeFile.parent?.path || '';
+				
+				try {
+					// Find notes in the same folder
+					const notesToEnhance = await this.intelligenceBrokerService.findNotesForEnhancement({
+						includeFolders: [folderPath],
+						maxNotes: 20 // Limit to prevent overwhelming
+					});
+
+					if (notesToEnhance.length === 0) {
+						new Notice('No notes found in current folder');
+						return;
+					}
+
+					new Notice(`Enhancing ${notesToEnhance.length} notes in folder...`);
+					
+					const suggestions = await this.intelligenceBrokerService.enhanceMultipleNotes(notesToEnhance);
+					
+					// Add suggestions with duplicate detection
+					let addedCount = 0;
+					let skippedCount = 0;
+					
+					for (const suggestion of suggestions) {
+						const wasAdded = await this.suggestionManagementService.addSuggestionWithDuplicateCheck(suggestion, false);
+						if (wasAdded) {
+							addedCount++;
+						} else {
+							skippedCount++;
+						}
+					}
+					
+					// Refresh the suggestion view to show the new suggestions
+					await this.refreshSuggestionView();
+					
+					let message = `✅ Enhanced ${suggestions.length} notes!\n`;
+					message += `📝 Added: ${addedCount} new suggestions\n`;
+					if (skippedCount > 0) {
+						message += `⏭️ Skipped: ${skippedCount} duplicates\n`;
+					}
+					message += `Check AI Suggestions view.`;
+					
+					new Notice(message, 6000);
+					await this.activateSuggestionView();
+				} catch (error) {
+					new Notice(`Failed to enhance folder notes: ${error.message}`);
+					console.error('Folder enhancement failed:', error);
+				}
+			}
+		});
+
+		this.addCommand({
+			id: 'enhance-recent-notes',
+			name: 'Enhance Recently Modified Notes',
+			callback: async () => {
+				try {
+					const oneWeekAgo = new Date();
+					oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+					const notesToEnhance = await this.intelligenceBrokerService.findNotesForEnhancement({
+						modifiedSince: oneWeekAgo,
+						maxNotes: 15,
+						minWordCount: 50, // Skip very short notes
+						excludeFolders: [this.settings.chatsFolder] // Skip chat notes
+					});
+
+					if (notesToEnhance.length === 0) {
+						new Notice('No recently modified notes found for enhancement');
+						return;
+					}
+
+					new Notice(`Enhancing ${notesToEnhance.length} recently modified notes...`);
+					
+					const suggestions = await this.intelligenceBrokerService.enhanceMultipleNotes(notesToEnhance);
+					
+					// Add suggestions with duplicate detection
+					let addedCount = 0;
+					let skippedCount = 0;
+					
+					for (const suggestion of suggestions) {
+						const wasAdded = await this.suggestionManagementService.addSuggestionWithDuplicateCheck(suggestion, false);
+						if (wasAdded) {
+							addedCount++;
+						} else {
+							skippedCount++;
+						}
+					}
+					
+					// Refresh the suggestion view to show the new suggestions
+					await this.refreshSuggestionView();
+					
+					let message = `✅ Enhanced ${suggestions.length} recent notes!\n`;
+					message += `📝 Added: ${addedCount} new suggestions\n`;
+					if (skippedCount > 0) {
+						message += `⏭️ Skipped: ${skippedCount} duplicates\n`;
+					}
+					message += `Check AI Suggestions view.`;
+					
+					new Notice(message, 6000);
+					await this.activateSuggestionView();
+				} catch (error) {
+					new Notice(`Failed to enhance recent notes: ${error.message}`);
+					console.error('Recent notes enhancement failed:', error);
+				}
+			}
+		});
+
+		this.addCommand({
+			id: 'enhance-untagged-notes',
+			name: 'Enhance Notes Missing Tags',
+			callback: async () => {
+				try {
+					const allFiles = this.app.vault.getMarkdownFiles();
+					const untaggedNotes: string[] = [];
+
+					for (const file of allFiles) {
+						const content = await this.app.vault.read(file);
+						const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter || {};
+						
+						// Check if note has no tags
+						const hasInlineTags = /#[\w-]+/.test(content);
+						const hasFrontmatterTags = frontmatter.tags && frontmatter.tags.length > 0;
+						
+						if (!hasInlineTags && !hasFrontmatterTags) {
+							const wordCount = content.split(/\s+/).length;
+							if (wordCount > 30) { // Skip very short notes
+								untaggedNotes.push(file.path);
+							}
+						}
+
+						if (untaggedNotes.length >= 20) break; // Limit batch size
+					}
+
+					if (untaggedNotes.length === 0) {
+						new Notice('No untagged notes found');
+						return;
+					}
+
+					new Notice(`Enhancing ${untaggedNotes.length} untagged notes...`);
+					
+					const suggestions = await this.intelligenceBrokerService.enhanceMultipleNotes(untaggedNotes);
+					
+					// Add suggestions with duplicate detection
+					let addedCount = 0;
+					let skippedCount = 0;
+					
+					for (const suggestion of suggestions) {
+						const wasAdded = await this.suggestionManagementService.addSuggestionWithDuplicateCheck(suggestion, false);
+						if (wasAdded) {
+							addedCount++;
+						} else {
+							skippedCount++;
+						}
+					}
+					
+					// Refresh the suggestion view to show the new suggestions
+					await this.refreshSuggestionView();
+					
+					let message = `✅ Enhanced ${suggestions.length} untagged notes!\n`;
+					message += `📝 Added: ${addedCount} new suggestions\n`;
+					if (skippedCount > 0) {
+						message += `⏭️ Skipped: ${skippedCount} duplicates\n`;
+					}
+					message += `Check AI Suggestions view.`;
+					
+					new Notice(message, 6000);
+					await this.activateSuggestionView();
+				} catch (error) {
+					new Notice(`Failed to enhance untagged notes: ${error.message}`);
+					console.error('Untagged notes enhancement failed:', error);
+				}
+			}
+		});
+
+		// Learning Data Commands
+		this.addCommand({
+			id: 'export-learning-data',
+			name: 'Export Learning Data for PyTorch Geometric',
+			callback: async () => {
+				try {
+					new Notice('Exporting learning data for PyTorch Geometric...');
+					
+					const exportData = await this.suggestionManagementService.getStorageService().exportForPyTorchGeometric();
+					
+					// Create export file
+					const exportPath = `learning-data-export-${new Date().toISOString().split('T')[0]}.json`;
+					await this.app.vault.create(exportPath, JSON.stringify(exportData, null, 2));
+					
+					new Notice(`Learning data exported to ${exportPath}`);
+					console.log('PyTorch Geometric Export:', exportData.metadata);
+				} catch (error) {
+					new Notice(`Export failed: ${error}`);
+					console.error('Learning data export failed:', error);
+				}
+			}
+		});
+
+		this.addCommand({
+			id: 'view-learning-statistics',
+			name: 'View Learning Statistics',
+			callback: async () => {
+				try {
+					const stats = await this.suggestionManagementService.getStorageService().getLearningStatistics();
+					
+					let message = `## Learning Statistics\n\n`;
+					message += `📊 **Total Decisions**: ${stats.totalDecisions}\n`;
+					message += `✅ **Approval Rate**: ${(stats.approvalRate * 100).toFixed(1)}%\n`;
+					message += `❌ **Rejection Rate**: ${(stats.rejectionRate * 100).toFixed(1)}%\n\n`;
+					
+					if (stats.topApprovedTypes.length > 0) {
+						message += `**Top Approved Types:**\n`;
+						stats.topApprovedTypes.forEach(type => {
+							message += `- ${type.type}: ${(type.rate * 100).toFixed(1)}%\n`;
+						});
+						message += `\n`;
+					}
+					
+					if (stats.topRejectionReasons.length > 0) {
+						message += `**Top Rejection Reasons:**\n`;
+						stats.topRejectionReasons.forEach(reason => {
+							message += `- ${reason.reason}: ${reason.count} times\n`;
+						});
+					}
+					
+					new Notice(message, 10000);
+					console.log('Learning Statistics:', stats);
+				} catch (error) {
+					new Notice(`Failed to get learning statistics: ${error}`);
+					console.error('Learning statistics failed:', error);
+				}
+			}
+		});
+
+		// Legacy Note Processing Commands
+		this.addCommand({
+			id: 'discover-unprocessed-notes',
+			name: 'Discover Unprocessed Notes',
+			callback: async () => {
+				try {
+					new Notice('Scanning vault for unprocessed notes...');
+					
+					const files = this.app.vault.getMarkdownFiles();
+					const unprocessedNotes: TFile[] = [];
+					const processedNotes: TFile[] = [];
+					
+					for (const file of files) {
+						const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
+						const status = frontmatter?.status;
+						
+						// Check if note has been processed
+						if (status === 'enhanced' || status === 'processed') {
+							processedNotes.push(file);
+						} else if (this.isEnhanceableNote(file, frontmatter)) {
+							unprocessedNotes.push(file);
+						}
+					}
+					
+					let message = `## Vault Enhancement Status\n\n`;
+					message += `📝 **Total Notes**: ${files.length}\n`;
+					message += `✅ **Processed**: ${processedNotes.length}\n`;
+					message += `⏳ **Unprocessed**: ${unprocessedNotes.length}\n`;
+					message += `📊 **Enhancement Coverage**: ${files.length > 0 ? Math.round((processedNotes.length / files.length) * 100) : 0}%\n\n`;
+					
+					if (unprocessedNotes.length > 0) {
+						message += `**Unprocessed Note Types:**\n`;
+						const typeCount: Record<string, number> = {};
+						
+						for (const file of unprocessedNotes) {
+							const type = this.getFileType(file);
+							typeCount[type] = (typeCount[type] || 0) + 1;
+						}
+						
+						Object.entries(typeCount).forEach(([type, count]) => {
+							message += `- ${type}: ${count} notes\n`;
+						});
+						
+						message += `\n💡 Use "Queue All Unprocessed Notes" to add them to the enhancement queue.`;
+					} else {
+						message += `🎉 All enhanceable notes have been processed!`;
+					}
+					
+					new Notice(message, 12000);
+					console.log('Unprocessed Notes Discovery:', { 
+						total: files.length, 
+						processed: processedNotes.length, 
+						unprocessed: unprocessedNotes.length,
+						unprocessedFiles: unprocessedNotes.map(f => f.path)
+					});
+				} catch (error) {
+					new Notice(`Failed to discover unprocessed notes: ${error}`);
+					console.error('Note discovery failed:', error);
+				}
+			}
+		});
+
+		this.addCommand({
+			id: 'queue-all-unprocessed-notes',
+			name: 'Queue All Unprocessed Notes',
+			callback: async () => {
+				try {
+					new Notice('Queuing unprocessed notes for enhancement...');
+					
+					const files = this.app.vault.getMarkdownFiles();
+					const unprocessedNotes: TFile[] = [];
+					
+					for (const file of files) {
+						const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
+						const status = frontmatter?.status;
+						
+						// Check if note needs processing
+						if (status !== 'enhanced' && status !== 'processed' && this.isEnhanceableNote(file, frontmatter)) {
+							unprocessedNotes.push(file);
+						}
+					}
+					
+					if (unprocessedNotes.length === 0) {
+						new Notice('No unprocessed notes found to queue');
+						return;
+					}
+					
+					// Queue notes for enhancement
+					let queuedCount = 0;
+					for (const file of unprocessedNotes) {
+						try {
+							const noteType = this.getFileType(file);
+							const priority = this.getNotePriority(noteType);
+							
+							await this.noteLinkingService.queueForEnhancement(file.path, {
+								source: this.getSourceFromType(noteType),
+								sourceData: { path: file.path, type: noteType },
+								priority
+							});
+							
+							queuedCount++;
+						} catch (error) {
+							console.warn(`Failed to queue note ${file.path}:`, error);
+						}
+					}
+					
+					new Notice(`✅ Queued ${queuedCount} notes for enhancement. Use "Process Note Enhancement Queue" to process them.`);
+					console.log(`Queued ${queuedCount} legacy notes for enhancement`);
+				} catch (error) {
+					new Notice(`Failed to queue unprocessed notes: ${error}`);
+					console.error('Queue all unprocessed failed:', error);
+				}
+			}
+		});
+
+		this.addCommand({
+			id: 'queue-notes-from-folder',
+			name: 'Queue Notes from Folder',
+			callback: async () => {
+				new Notice('Folder selection feature coming soon. Use "Queue All Unprocessed Notes" for now.');
+			}
+		});
+
+		this.addCommand({
+			id: 'retroactive-enhancement',
+			name: 'Retroactive Enhancement (One-Click)',
+			callback: async () => {
+				try {
+					new Notice('Starting retroactive enhancement of all unprocessed notes...');
+					
+					// First, queue all unprocessed notes
+					const files = this.app.vault.getMarkdownFiles();
+					const unprocessedNotes: TFile[] = [];
+					
+					for (const file of files) {
+						const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
+						const status = frontmatter?.status;
+						
+						if (status !== 'enhanced' && status !== 'processed' && this.isEnhanceableNote(file, frontmatter)) {
+							unprocessedNotes.push(file);
+						}
+					}
+					
+					if (unprocessedNotes.length === 0) {
+						new Notice('No unprocessed notes found for enhancement');
+						return;
+					}
+					
+					// Queue all notes
+					let queuedCount = 0;
+					for (const file of unprocessedNotes) {
+						try {
+							const noteType = this.getFileType(file);
+							const priority = this.getNotePriority(noteType);
+							
+							await this.noteLinkingService.queueForEnhancement(file.path, {
+								source: this.getSourceFromType(noteType),
+								sourceData: { path: file.path, type: noteType },
+								priority
+							});
+							
+							queuedCount++;
+						} catch (error) {
+							console.warn(`Failed to queue note ${file.path}:`, error);
+						}
+					}
+					
+					new Notice(`Queued ${queuedCount} notes. Starting enhancement processing...`);
+					
+					// Process the queue in batches
+					await this.linkingIntegrationService.processEnhancementQueue(20); // Larger batch for retroactive
+					
+					new Notice(`🎉 Retroactive enhancement completed! Processed ${queuedCount} notes.`);
+				} catch (error) {
+					new Notice(`Retroactive enhancement failed: ${error}`);
+					console.error('Retroactive enhancement failed:', error);
+				}
 			}
 		});
 	}
@@ -589,6 +1324,42 @@ export default class SecondBrainPlugin extends Plugin {
 		}
 	}
 
+	async activateSuggestionView(): Promise<void> {
+		const { workspace } = this.app;
+
+		let leaf: WorkspaceLeaf | null = null;
+		const leaves = workspace.getLeavesOfType(SUGGESTION_APPROVAL_VIEW_TYPE);
+
+		if (leaves.length > 0) {
+			// A suggestion view already exists, focus it
+			leaf = leaves[0];
+		} else {
+			// Create a new suggestion view in the right sidebar
+			leaf = workspace.getRightLeaf(false);
+			await leaf?.setViewState({ type: SUGGESTION_APPROVAL_VIEW_TYPE, active: true });
+		}
+
+		// Reveal the leaf
+		if (leaf) {
+			workspace.revealLeaf(leaf);
+		}
+	}
+
+	/**
+	 * Refresh the suggestion view if it's open
+	 */
+	async refreshSuggestionView(): Promise<void> {
+		const { workspace } = this.app;
+		const leaves = workspace.getLeavesOfType(SUGGESTION_APPROVAL_VIEW_TYPE);
+		
+		for (const leaf of leaves) {
+			const view = leaf.view;
+			if (view instanceof SuggestionApprovalView) {
+				await view.refresh();
+			}
+		}
+	}
+
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
@@ -622,6 +1393,110 @@ export default class SecondBrainPlugin extends Plugin {
 		} catch (error) {
 			const errorMsg = error instanceof Error ? error.message : 'Unknown error';
 			new Notice(`Failed to start Google account setup: ${errorMsg}`);
+		}
+	}
+
+	// Helper methods for legacy note processing
+
+	/**
+	 * Check if a note is enhanceable (should be processed by the linking system)
+	 */
+	private isEnhanceableNote(file: TFile, frontmatter?: any): boolean {
+		// Skip if already processed
+		if (frontmatter?.status === 'enhanced' || frontmatter?.status === 'processed') {
+			return false;
+		}
+
+		// Skip system files and templates
+		if (file.path.startsWith('.') || file.path.includes('template')) {
+			return false;
+		}
+
+		// Skip if in excluded folders
+		const excludedFolders = ['Archive', 'Templates', '.obsidian'];
+		for (const folder of excludedFolders) {
+			if (file.path.startsWith(folder + '/')) {
+				return false;
+			}
+		}
+
+		// Include notes with specific types or in specific folders
+		const noteType = this.getFileType(file);
+		return noteType !== 'unknown';
+	}
+
+	/**
+	 * Determine the type of a note based on its path and frontmatter
+	 */
+	private getFileType(file: TFile): string {
+		const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
+		
+		// Check frontmatter type first
+		if (frontmatter?.type) {
+			return frontmatter.type;
+		}
+
+		// Determine from path
+		if (file.path.includes('Transactions/') || file.path.includes('transactions/')) {
+			return 'transaction';
+		}
+		if (file.path.includes('Events/') || file.path.includes('events/')) {
+			return 'calendar-event';
+		}
+		if (file.path.includes('Chat/') || file.path.includes('chat/')) {
+			return 'chat';
+		}
+		if (file.path.includes('People/') || file.path.includes('people/')) {
+			return 'person';
+		}
+		if (file.path.includes('Projects/') || file.path.includes('projects/')) {
+			return 'project';
+		}
+
+		// Check for common note patterns
+		if (frontmatter?.tags?.includes('meeting') || file.basename.toLowerCase().includes('meeting')) {
+			return 'meeting';
+		}
+		if (frontmatter?.tags?.includes('task') || file.basename.toLowerCase().includes('task')) {
+			return 'task';
+		}
+
+		return 'manual';
+	}
+
+	/**
+	 * Get priority for note processing based on type
+	 */
+	private getNotePriority(noteType: string): 'high' | 'medium' | 'low' {
+		switch (noteType) {
+			case 'transaction':
+			case 'calendar-event':
+				return 'medium';
+			case 'meeting':
+			case 'task':
+				return 'high';
+			case 'person':
+			case 'project':
+				return 'medium';
+			default:
+				return 'low';
+		}
+	}
+
+	/**
+	 * Get source type for note linking service
+	 */
+	private getSourceFromType(noteType: string): 'calendar' | 'transaction' | 'manual' | 'chat' {
+		switch (noteType) {
+			case 'transaction':
+				return 'transaction';
+			case 'calendar-event':
+			case 'meeting':
+				return 'calendar';
+			case 'chat':
+				return 'chat';
+			default:
+				return 'manual';
 		}
 	}
 }

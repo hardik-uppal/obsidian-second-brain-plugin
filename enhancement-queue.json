@@ -1,0 +1,1559 @@
+{
+  "queue": [
+    {
+      "noteId": "transactions/2025-08/2025-08-04 - Ubc Parking Digital - $4.50.md",
+      "notePath": "transactions/2025-08/2025-08-04 - Ubc Parking Digital - $4.50.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-08/2025-08-04 - Ubc Parking Digital - $4.50.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.080Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.138Z"
+    },
+    {
+      "noteId": "transactions/2025-08/2025-08-04 - Investment Wealthsimple Invest - $200.00.md",
+      "notePath": "transactions/2025-08/2025-08-04 - Investment Wealthsimple Invest - $200.00.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-08/2025-08-04 - Investment Wealthsimple Invest - $200.00.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.085Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.139Z"
+    },
+    {
+      "noteId": "transactions/2025-08/2025-08-04 - Generation Cannabis - $33.59.md",
+      "notePath": "transactions/2025-08/2025-08-04 - Generation Cannabis - $33.59.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-08/2025-08-04 - Generation Cannabis - $33.59.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.086Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.140Z"
+    },
+    {
+      "noteId": "transactions/2025-08/2025-08-04 - Birds Nest Prope - $3335.22.md",
+      "notePath": "transactions/2025-08/2025-08-04 - Birds Nest Prope - $3335.22.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-08/2025-08-04 - Birds Nest Prope - $3335.22.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.087Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.142Z"
+    },
+    {
+      "noteId": "transactions/2025-08/2025-08-04 - Bimini Beer Wine Store - $66.95.md",
+      "notePath": "transactions/2025-08/2025-08-04 - Bimini Beer Wine Store - $66.95.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-08/2025-08-04 - Bimini Beer Wine Store - $66.95.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.087Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.144Z"
+    },
+    {
+      "noteId": "transactions/2025-08/2025-08-03 - Generation Cannabis - $33.59.md",
+      "notePath": "transactions/2025-08/2025-08-03 - Generation Cannabis - $33.59.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-08/2025-08-03 - Generation Cannabis - $33.59.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.090Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.145Z"
+    },
+    {
+      "noteId": "transactions/2025-08/2025-08-02 - Ignite Pizzeria - $9.01.md",
+      "notePath": "transactions/2025-08/2025-08-02 - Ignite Pizzeria - $9.01.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-08/2025-08-02 - Ignite Pizzeria - $9.01.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.091Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.146Z"
+    },
+    {
+      "noteId": "transactions/2025-08/2025-08-02 - Aperture Coffee Bar - $7.85.md",
+      "notePath": "transactions/2025-08/2025-08-02 - Aperture Coffee Bar - $7.85.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-08/2025-08-02 - Aperture Coffee Bar - $7.85.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.093Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.147Z"
+    },
+    {
+      "noteId": "transactions/2025-08/2025-08-02 - Aperture Coffee Bar - $17.51.md",
+      "notePath": "transactions/2025-08/2025-08-02 - Aperture Coffee Bar - $17.51.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-08/2025-08-02 - Aperture Coffee Bar - $17.51.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.093Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.149Z"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-08-01 - Compass Vending - $40.00.md",
+      "notePath": "transactions/2025-07/2025-08-01 - Compass Vending - $40.00.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-08-01 - Compass Vending - $40.00.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.093Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.150Z"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-08-01 - COMPASS ACCOUNT BURNAB BURNABY - $3.35.md",
+      "notePath": "transactions/2025-07/2025-08-01 - COMPASS ACCOUNT BURNAB BURNABY - $3.35.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-08-01 - COMPASS ACCOUNT BURNAB BURNABY - $3.35.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.094Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.152Z"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-08-01 - Baby Dhal Roti Shop - $20.83.md",
+      "notePath": "transactions/2025-07/2025-08-01 - Baby Dhal Roti Shop - $20.83.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-08-01 - Baby Dhal Roti Shop - $20.83.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.094Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.153Z"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-08-01 - Aperture Coffee Bar - $6.83.md",
+      "notePath": "transactions/2025-07/2025-08-01 - Aperture Coffee Bar - $6.83.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-08-01 - Aperture Coffee Bar - $6.83.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.094Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.155Z"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-08-01 - Aperture Coffee Bar - $18.11.md",
+      "notePath": "transactions/2025-07/2025-08-01 - Aperture Coffee Bar - $18.11.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-08-01 - Aperture Coffee Bar - $18.11.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.095Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.156Z"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-31 - Regular Interest - $0.01.md",
+      "notePath": "transactions/2025-07/2025-07-31 - Regular Interest - $0.01.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-31 - Regular Interest - $0.01.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.095Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.158Z"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-31 - Payroll Deposit IMAGEQ - $10001.66.md",
+      "notePath": "transactions/2025-07/2025-07-31 - Payroll Deposit IMAGEQ - $10001.66.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-31 - Payroll Deposit IMAGEQ - $10001.66.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.095Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.160Z"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-31 - Ignite Pizzeria - $9.01.md",
+      "notePath": "transactions/2025-07/2025-07-31 - Ignite Pizzeria - $9.01.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-31 - Ignite Pizzeria - $9.01.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.095Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.164Z"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-31 - Best Buy - $49.26.md",
+      "notePath": "transactions/2025-07/2025-07-31 - Best Buy - $49.26.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-31 - Best Buy - $49.26.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.096Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.165Z"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-31 - Aperture Coffee Bar - $6.36.md",
+      "notePath": "transactions/2025-07/2025-07-31 - Aperture Coffee Bar - $6.36.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-31 - Aperture Coffee Bar - $6.36.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.096Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.166Z"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-31 - Aperture Coffee Bar - $20.48.md",
+      "notePath": "transactions/2025-07/2025-07-31 - Aperture Coffee Bar - $20.48.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-31 - Aperture Coffee Bar - $20.48.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.097Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-30 - Tokyo Katsu Sand - $17.59.md",
+      "notePath": "transactions/2025-07/2025-07-30 - Tokyo Katsu Sand - $17.59.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-30 - Tokyo Katsu Sand - $17.59.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.097Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-30 - AW Restaurants - $12.13.md",
+      "notePath": "transactions/2025-07/2025-07-30 - AW Restaurants - $12.13.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-30 - AW Restaurants - $12.13.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.097Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-29 - Loans Honda Canada Finance - $378.46.md",
+      "notePath": "transactions/2025-07/2025-07-29 - Loans Honda Canada Finance - $378.46.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-29 - Loans Honda Canada Finance - $378.46.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.098Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-29 - Dhamaka Indian Restauran - $67.70.md",
+      "notePath": "transactions/2025-07/2025-07-29 - Dhamaka Indian Restauran - $67.70.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-29 - Dhamaka Indian Restauran - $67.70.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.098Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-29 - Beacon Pub Eatery - $15.75.md",
+      "notePath": "transactions/2025-07/2025-07-29 - Beacon Pub Eatery - $15.75.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-29 - Beacon Pub Eatery - $15.75.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.099Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-28 - Square One Insurance - $28.26.md",
+      "notePath": "transactions/2025-07/2025-07-28 - Square One Insurance - $28.26.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-28 - Square One Insurance - $28.26.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.099Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-28 - Real Canadian Superstore - $27.98.md",
+      "notePath": "transactions/2025-07/2025-07-28 - Real Canadian Superstore - $27.98.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-28 - Real Canadian Superstore - $27.98.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.100Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-28 - Investment Wealthsimple Invest - $200.00.md",
+      "notePath": "transactions/2025-07/2025-07-28 - Investment Wealthsimple Invest - $200.00.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-28 - Investment Wealthsimple Invest - $200.00.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.100Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-28 - GoDaddy - $114.54.md",
+      "notePath": "transactions/2025-07/2025-07-28 - GoDaddy - $114.54.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-28 - GoDaddy - $114.54.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.100Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-28 - Ft Pizza Cd Donair - $54.08.md",
+      "notePath": "transactions/2025-07/2025-07-28 - Ft Pizza Cd Donair - $54.08.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-28 - Ft Pizza Cd Donair - $54.08.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.101Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-28 - Day Lots Parking - $4.45.md",
+      "notePath": "transactions/2025-07/2025-07-28 - Day Lots Parking - $4.45.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-28 - Day Lots Parking - $4.45.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.101Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-27 - Telus - $72.49.md",
+      "notePath": "transactions/2025-07/2025-07-27 - Telus - $72.49.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-27 - Telus - $72.49.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.101Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-27 - Tasty Indian Bistro - $253.09.md",
+      "notePath": "transactions/2025-07/2025-07-27 - Tasty Indian Bistro - $253.09.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-27 - Tasty Indian Bistro - $253.09.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.102Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-27 - Save-On-Foods - $36.57.md",
+      "notePath": "transactions/2025-07/2025-07-27 - Save-On-Foods - $36.57.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-27 - Save-On-Foods - $36.57.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.102Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-27 - Safeway - $7.35.md",
+      "notePath": "transactions/2025-07/2025-07-27 - Safeway - $7.35.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-27 - Safeway - $7.35.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.102Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-27 - Goldies Donuts Bak - $6.56.md",
+      "notePath": "transactions/2025-07/2025-07-27 - Goldies Donuts Bak - $6.56.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-27 - Goldies Donuts Bak - $6.56.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.102Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-27 - EVO - $85.41.md",
+      "notePath": "transactions/2025-07/2025-07-27 - EVO - $85.41.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-27 - EVO - $85.41.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.102Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-26 - Trafiq Cafe Bakery - $65.62.md",
+      "notePath": "transactions/2025-07/2025-07-26 - Trafiq Cafe Bakery - $65.62.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-26 - Trafiq Cafe Bakery - $65.62.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.103Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-26 - Rollzzy - $13.64.md",
+      "notePath": "transactions/2025-07/2025-07-26 - Rollzzy - $13.64.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-26 - Rollzzy - $13.64.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.103Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-26 - Earnest Ice Cream - $13.00.md",
+      "notePath": "transactions/2025-07/2025-07-26 - Earnest Ice Cream - $13.00.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-26 - Earnest Ice Cream - $13.00.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.103Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-26 - Donairdude - $16.79.md",
+      "notePath": "transactions/2025-07/2025-07-26 - Donairdude - $16.79.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-26 - Donairdude - $16.79.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.103Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-25 - EVO - $2.24.md",
+      "notePath": "transactions/2025-07/2025-07-25 - EVO - $2.24.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-25 - EVO - $2.24.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.103Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-24 - Real Canadian Superstore - $32.57.md",
+      "notePath": "transactions/2025-07/2025-07-24 - Real Canadian Superstore - $32.57.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-24 - Real Canadian Superstore - $32.57.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.104Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-24 - Drinks 4 Less - $88.93.md",
+      "notePath": "transactions/2025-07/2025-07-24 - Drinks 4 Less - $88.93.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-24 - Drinks 4 Less - $88.93.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.104Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-23 - Jeya Brothers - $4.99.md",
+      "notePath": "transactions/2025-07/2025-07-23 - Jeya Brothers - $4.99.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-23 - Jeya Brothers - $4.99.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.104Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-22 - Sporting Life - $108.62.md",
+      "notePath": "transactions/2025-07/2025-07-22 - Sporting Life - $108.62.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-22 - Sporting Life - $108.62.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.105Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-22 - CLINE BOT CLINEBOT DE - $7.97.md",
+      "notePath": "transactions/2025-07/2025-07-22 - CLINE BOT CLINEBOT DE - $7.97.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-22 - CLINE BOT CLINEBOT DE - $7.97.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.105Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-21 - Save-On-Foods - $9.29.md",
+      "notePath": "transactions/2025-07/2025-07-21 - Save-On-Foods - $9.29.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-21 - Save-On-Foods - $9.29.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.105Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-21 - Real Canadian Superstore - $20.01.md",
+      "notePath": "transactions/2025-07/2025-07-21 - Real Canadian Superstore - $20.01.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-21 - Real Canadian Superstore - $20.01.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.106Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-21 - Real Canadian Superstore - $10.90.md",
+      "notePath": "transactions/2025-07/2025-07-21 - Real Canadian Superstore - $10.90.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-21 - Real Canadian Superstore - $10.90.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.106Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-21 - Investment Wealthsimple Invest - $200.00.md",
+      "notePath": "transactions/2025-07/2025-07-21 - Investment Wealthsimple Invest - $200.00.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-21 - Investment Wealthsimple Invest - $200.00.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.106Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-20 - IKEA - $42.50.md",
+      "notePath": "transactions/2025-07/2025-07-20 - IKEA - $42.50.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-20 - IKEA - $42.50.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.107Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-20 - Dosa N Chutney - $70.41.md",
+      "notePath": "transactions/2025-07/2025-07-20 - Dosa N Chutney - $70.41.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-20 - Dosa N Chutney - $70.41.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.107Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-03 - Birds Nest Prope - $3300.00.md",
+      "notePath": "transactions/2025-07/2025-07-03 - Birds Nest Prope - $3300.00.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-03 - Birds Nest Prope - $3300.00.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.107Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-02 - Dhamaka Downtown - $93.56.md",
+      "notePath": "transactions/2025-07/2025-07-02 - Dhamaka Downtown - $93.56.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-02 - Dhamaka Downtown - $93.56.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.108Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2025-07/2025-07-02 - Loans Honda Canada Finance - $378.46.md",
+      "notePath": "transactions/2025-07/2025-07-02 - Loans Honda Canada Finance - $378.46.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2025-07/2025-07-02 - Loans Honda Canada Finance - $378.46.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.109Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "transactions/2024-01-15-sample-transaction.md",
+      "notePath": "transactions/2024-01-15-sample-transaction.md",
+      "source": "transaction",
+      "sourceData": {
+        "path": "transactions/2024-01-15-sample-transaction.md",
+        "type": "transaction"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.110Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "tasks/review-quarterly-budget.md",
+      "notePath": "tasks/review-quarterly-budget.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "tasks/review-quarterly-budget.md",
+        "type": "task"
+      },
+      "priority": "high",
+      "queuedAt": "2025-08-08T19:40:08.110Z",
+      "attempts": 1,
+      "status": "completed",
+      "lastAttempt": "2025-08-08T19:40:08.136Z"
+    },
+    {
+      "noteId": "suggestions/logs/batch-batch_single_1754675415464_byh5ry.md",
+      "notePath": "suggestions/logs/batch-batch_single_1754675415464_byh5ry.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "suggestions/logs/batch-batch_single_1754675415464_byh5ry.md",
+        "type": "suggestion-batch-log"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.111Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "second brain idea/to do.md",
+      "notePath": "second brain idea/to do.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "second brain idea/to do.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.111Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "second brain idea/second brain.md",
+      "notePath": "second brain idea/second brain.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "second brain idea/second brain.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.111Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "second brain idea/report.md",
+      "notePath": "second brain idea/report.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "second brain idea/report.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.111Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "second brain idea/need.md",
+      "notePath": "second brain idea/need.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "second brain idea/need.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.111Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "second brain idea/federated learning.md",
+      "notePath": "second brain idea/federated learning.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "second brain idea/federated learning.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.112Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "second brain idea/differential privacy.md",
+      "notePath": "second brain idea/differential privacy.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "second brain idea/differential privacy.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.112Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "second brain idea/business models for the second brain idea..md",
+      "notePath": "second brain idea/business models for the second brain idea..md",
+      "source": "manual",
+      "sourceData": {
+        "path": "second brain idea/business models for the second brain idea..md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.112Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "second brain idea/build v1.0.0.md",
+      "notePath": "second brain idea/build v1.0.0.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "second brain idea/build v1.0.0.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.112Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "second brain idea/Tech side plan.md",
+      "notePath": "second brain idea/Tech side plan.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "second brain idea/Tech side plan.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.113Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "second brain idea/Product to-do.md",
+      "notePath": "second brain idea/Product to-do.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "second brain idea/Product to-do.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.113Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "second brain idea/Metadata people can share.md",
+      "notePath": "second brain idea/Metadata people can share.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "second brain idea/Metadata people can share.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.113Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "second brain idea/Budget.md",
+      "notePath": "second brain idea/Budget.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "second brain idea/Budget.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.113Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "random musing on a day.md",
+      "notePath": "random musing on a day.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "random musing on a day.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.113Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "obsidian plugin.md",
+      "notePath": "obsidian plugin.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "obsidian plugin.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.114Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "notes/second-brain-setup.md",
+      "notePath": "notes/second-brain-setup.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "notes/second-brain-setup.md",
+        "type": "note"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.114Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "how to take smart notes.md",
+      "notePath": "how to take smart notes.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "how to take smart notes.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.114Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Tensor Talks - 2025-07-31.md",
+      "notePath": "events/Tensor Talks - 2025-07-31.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Tensor Talks - 2025-07-31.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.114Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Team lunch - 2025-08-11.md",
+      "notePath": "events/Team lunch - 2025-08-11.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Team lunch - 2025-08-11.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.115Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Team lunch - 2025-08-04.md",
+      "notePath": "events/Team lunch - 2025-08-04.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Team lunch - 2025-08-04.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.115Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Team lunch - 2025-07-28.md",
+      "notePath": "events/Team lunch - 2025-07-28.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Team lunch - 2025-07-28.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.115Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Soccer - 2025-08-13.md",
+      "notePath": "events/Soccer - 2025-08-13.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Soccer - 2025-08-13.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.116Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Soccer - 2025-08-06.md",
+      "notePath": "events/Soccer - 2025-08-06.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Soccer - 2025-08-06.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.116Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Soccer - 2025-07-30.md",
+      "notePath": "events/Soccer - 2025-07-30.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Soccer - 2025-07-30.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.116Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Seenu - Hardik - Arvind (Tentative) - 2025-07-31.md",
+      "notePath": "events/Seenu - Hardik - Arvind (Tentative) - 2025-07-31.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Seenu - Hardik - Arvind (Tentative) - 2025-07-31.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.117Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/On Prem Research Hardware Management - 2025-07-29.md",
+      "notePath": "events/On Prem Research Hardware Management - 2025-07-29.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/On Prem Research Hardware Management - 2025-07-29.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.117Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/New research project - Culling - 2025-07-30.md",
+      "notePath": "events/New research project - Culling - 2025-07-30.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/New research project - Culling - 2025-07-30.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.117Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Mahdiyar - Hardik - 2025-08-14.md",
+      "notePath": "events/Mahdiyar - Hardik - 2025-08-14.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Mahdiyar - Hardik - 2025-08-14.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.117Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Mahdiyar - Hardik - 2025-08-07.md",
+      "notePath": "events/Mahdiyar - Hardik - 2025-08-07.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Mahdiyar - Hardik - 2025-08-07.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.118Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Mahdiyar - Hardik - 2025-07-31.md",
+      "notePath": "events/Mahdiyar - Hardik - 2025-07-31.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Mahdiyar - Hardik - 2025-07-31.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.118Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/ML Research Sync - 2025-08-12.md",
+      "notePath": "events/ML Research Sync - 2025-08-12.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/ML Research Sync - 2025-08-12.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.118Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/ML Research Sync - 2025-08-05.md",
+      "notePath": "events/ML Research Sync - 2025-08-05.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/ML Research Sync - 2025-08-05.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.119Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/ML Research Sync - 2025-07-29.md",
+      "notePath": "events/ML Research Sync - 2025-07-29.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/ML Research Sync - 2025-07-29.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.119Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Lunchtime - 2025-07-28.md",
+      "notePath": "events/Lunchtime - 2025-07-28.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Lunchtime - 2025-07-28.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.119Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Interviewing Training (Optional) - 2025-08-11.md",
+      "notePath": "events/Interviewing Training (Optional) - 2025-08-11.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Interviewing Training (Optional) - 2025-08-11.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.120Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Hold for back to the future 3 night @ office - 2025-08-07.md",
+      "notePath": "events/Hold for back to the future 3 night @ office - 2025-08-07.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Hold for back to the future 3 night @ office - 2025-08-07.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.120Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Hardik - Nathan - 2025-08-12.md",
+      "notePath": "events/Hardik - Nathan - 2025-08-12.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Hardik - Nathan - 2025-08-12.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.121Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Hardik - Nathan - 2025-08-05.md",
+      "notePath": "events/Hardik - Nathan - 2025-08-05.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Hardik - Nathan - 2025-08-05.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.122Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Hardik - Nathan - 2025-07-29.md",
+      "notePath": "events/Hardik - Nathan - 2025-07-29.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Hardik - Nathan - 2025-07-29.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.122Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Full Company All Hands - 2025-07-30.md",
+      "notePath": "events/Full Company All Hands - 2025-07-30.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Full Company All Hands - 2025-07-30.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.123Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Color-Crop Discussion - 2025-08-12.md",
+      "notePath": "events/Color-Crop Discussion - 2025-08-12.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Color-Crop Discussion - 2025-08-12.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.123Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Color-Crop Discussion - 2025-08-05.md",
+      "notePath": "events/Color-Crop Discussion - 2025-08-05.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Color-Crop Discussion - 2025-08-05.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.124Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Color-Crop Discussion - 2025-07-29.md",
+      "notePath": "events/Color-Crop Discussion - 2025-07-29.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Color-Crop Discussion - 2025-07-29.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.124Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/Appointment at Destination Honda Burnaby - 2025-07-28.md",
+      "notePath": "events/Appointment at Destination Honda Burnaby - 2025-07-28.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/Appointment at Destination Honda Burnaby - 2025-07-28.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.124Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "events/AMA Session with SLT - 2025-08-05.md",
+      "notePath": "events/AMA Session with SLT - 2025-08-05.md",
+      "source": "calendar",
+      "sourceData": {
+        "path": "events/AMA Session with SLT - 2025-08-05.md",
+        "type": "calendar-event"
+      },
+      "priority": "medium",
+      "queuedAt": "2025-08-08T19:40:08.128Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "chats/Chat Session 2025-08-05 1643.md",
+      "notePath": "chats/Chat Session 2025-08-05 1643.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "chats/Chat Session 2025-08-05 1643.md",
+        "type": "chat-session"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.128Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "chats/Chat Session 2025-08-01 1556.md",
+      "notePath": "chats/Chat Session 2025-08-01 1556.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "chats/Chat Session 2025-08-01 1556.md",
+        "type": "chat-session"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.128Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "Zettelkasten.md",
+      "notePath": "Zettelkasten.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "Zettelkasten.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.129Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "Untitled.md",
+      "notePath": "Untitled.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "Untitled.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.130Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "Sample Transaction.md",
+      "notePath": "Sample Transaction.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "Sample Transaction.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.130Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "Project X.md",
+      "notePath": "Project X.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "Project X.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.131Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "First thought.md",
+      "notePath": "First thought.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "First thought.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.131Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "Excalidraw/Drawing 2025-07-31 00.09.16.excalidraw.md",
+      "notePath": "Excalidraw/Drawing 2025-07-31 00.09.16.excalidraw.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "Excalidraw/Drawing 2025-07-31 00.09.16.excalidraw.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.131Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "Excalidraw/Drawing 2025-07-31 00.08.50.excalidraw.md",
+      "notePath": "Excalidraw/Drawing 2025-07-31 00.08.50.excalidraw.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "Excalidraw/Drawing 2025-07-31 00.08.50.excalidraw.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.132Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "Excalidraw/Drawing 2025-07-31 00.08.21.excalidraw.md",
+      "notePath": "Excalidraw/Drawing 2025-07-31 00.08.21.excalidraw.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "Excalidraw/Drawing 2025-07-31 00.08.21.excalidraw.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.132Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "5 aug status.md",
+      "notePath": "5 aug status.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "5 aug status.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.132Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "2025-07-31.md",
+      "notePath": "2025-07-31.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "2025-07-31.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.133Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "2025-07-30.md",
+      "notePath": "2025-07-30.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "2025-07-30.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.133Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "2025-07-29.md",
+      "notePath": "2025-07-29.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "2025-07-29.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.134Z",
+      "attempts": 0,
+      "status": "queued"
+    },
+    {
+      "noteId": "1 aug status.md",
+      "notePath": "1 aug status.md",
+      "source": "manual",
+      "sourceData": {
+        "path": "1 aug status.md",
+        "type": "manual"
+      },
+      "priority": "low",
+      "queuedAt": "2025-08-08T19:40:08.134Z",
+      "attempts": 0,
+      "status": "queued"
+    }
+  ],
+  "lastUpdated": "2025-08-08T19:40:08.167Z"
+}

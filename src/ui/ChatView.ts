@@ -138,6 +138,9 @@ export class ChatView extends ItemView {
 				// Add suggestion to the management system if available
 				if (this.plugin.suggestionManagementService) {
 					await this.plugin.suggestionManagementService.addSuggestion(suggestion);
+					
+					// Refresh the suggestion view to show the new suggestion
+					await this.plugin.refreshSuggestionView();
 				}
 			}
 		} catch (error) {

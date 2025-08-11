@@ -14,6 +14,7 @@ export class SuggestionManagementService {
 	private llmService: IntelligenceBrokerService;
 	private storageService: SuggestionStorageService;
 	private applicationService: SuggestionApplicationService;
+	private viewRefreshCallback?: () => Promise<void>;
 
 	constructor(
 		app: App, 
@@ -25,6 +26,13 @@ export class SuggestionManagementService {
 		this.llmService = llmService;
 		this.storageService = new SuggestionStorageService(app, settings);
 		this.applicationService = new SuggestionApplicationService(app, settings);
+	}
+
+	/**
+	 * Set callback to refresh suggestion view when new suggestions are added
+	 */
+	setViewRefreshCallback(callback: () => Promise<void>): void {
+		this.viewRefreshCallback = callback;
 	}
 
 	/**
@@ -218,6 +226,15 @@ export class SuggestionManagementService {
 		if (this.settings.suggestionSystem.notifyOnNewSuggestions) {
 			new Notice(`New suggestion: ${suggestion.originalData.title}`);
 		}
+
+		// Trigger view refresh if callback is set
+		if (this.viewRefreshCallback) {
+			try {
+				await this.viewRefreshCallback();
+			} catch (error) {
+				console.error('Failed to refresh suggestion view:', error);
+			}
+		}
 	}
 
 	// ===========================================
@@ -330,8 +347,81 @@ export class SuggestionManagementService {
 	 * Get pending suggestions for UI display
 	 */
 	async getPendingSuggestions(): Promise<SuggestionBatch[]> {
+		console.log('🔍 SuggestionManagementService: Getting pending suggestions...');
 		const data = await this.storageService.loadPendingSuggestions();
-		return data.batches.filter(batch => batch.batchStatus !== 'completed');
+		const filteredBatches = data.batches.filter(batch => batch.batchStatus !== 'completed');
+		
+		console.log(`📊 Found ${data.batches.length} total batches, ${filteredBatches.length} non-completed batches`);
+		
+		if (filteredBatches.length > 0) {
+			console.log('📋 Non-completed batches:', filteredBatches.map(b => ({
+				id: b.id,
+				status: b.batchStatus,
+				totalSuggestions: b.totalSuggestions,
+				pendingSuggestions: b.suggestions?.filter(s => s.status === 'pending').length || 0
+			})));
+		}
+		
+		return filteredBatches;
+	}
+
+	/**
+	 * Check if similar suggestions already exist for a note
+	 */
+	async hasSimilarSuggestions(notePath: string, suggestionType?: string): Promise<boolean> {
+		const data = await this.storageService.loadPendingSuggestions();
+		
+		for (const batch of data.batches) {
+			for (const suggestion of batch.suggestions) {
+				// Check if we already have a suggestion for this note path
+				if (suggestion.targetNotePath === notePath) {
+					// If suggestionType is specified, check for exact type match
+					if (suggestionType && suggestion.type === suggestionType) {
+						return true;
+					}
+					// If no suggestionType specified, any suggestion for this note counts
+					if (!suggestionType) {
+						return true;
+					}
+				}
+			}
+		}
+		
+		return false;
+	}
+
+	/**
+	 * Get existing suggestions for a note path
+	 */
+	async getExistingSuggestionsForNote(notePath: string): Promise<LLMSuggestion[]> {
+		const data = await this.storageService.loadPendingSuggestions();
+		const existingSuggestions: LLMSuggestion[] = [];
+		
+		for (const batch of data.batches) {
+			for (const suggestion of batch.suggestions) {
+				if (suggestion.targetNotePath === notePath) {
+					existingSuggestions.push(suggestion);
+				}
+			}
+		}
+		
+		return existingSuggestions;
+	}
+
+	/**
+	 * Add suggestion with duplicate detection
+	 */
+	async addSuggestionWithDuplicateCheck(suggestion: LLMSuggestion, allowDuplicates: boolean = false): Promise<boolean> {
+		if (!allowDuplicates) {
+			const hasSimilar = await this.hasSimilarSuggestions(suggestion.targetNotePath || '', suggestion.type);
+			if (hasSimilar) {
+				console.log(`⚠️ Skipping duplicate suggestion for ${suggestion.targetNotePath} (type: ${suggestion.type})`);
+				return false; // Suggestion was skipped
+			}
+		}
+		
+		await this.addSuggestion(suggestion);
+		return true; // Suggestion was added
 	}
 
 	/**
@@ -369,8 +459,9 @@ export class SuggestionManagementService {
 	 */
 	private generateBatchId(type: string): string {
 		const timestamp = Date.now();
-		const random = Math.random().toString(36).substr(2, 6);
-		return `batch_${type}_${timestamp}_${random}`;
+		const random = Math.random().toString(36).substr(2, 9); // Longer random string
+		const counter = Math.floor(Math.random() * 1000); // Additional randomness
+		return `batch_${type}_${timestamp}_${random}_${counter}`;
 	}
 
 	/**

@@ -124,7 +124,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 		autoApproveHighConfidence: false,
 		highConfidenceThreshold: 0.85,
 		createSummaryLogs: true,
-		storageLocation: '.suggestions',
+		storageLocation: 'suggestions',
 		maxPendingSuggestions: 100,
 		batchProcessing: true,
 		notifyOnNewSuggestions: true
@@ -142,6 +142,16 @@ export interface Transaction {
 	description: string;
 	tags: string[];
 	rawData?: any;
+	
+	// Extended Plaid-specific fields
+	account_id?: string;
+	currency?: string;
+	payment_channel?: string;
+	merchant_name?: string;
+	personal_finance_category?: {
+		primary?: string;
+		detailed?: string;
+	};
 }
 
 // Transaction Sync Types (following calendar pattern)
@@ -219,7 +229,7 @@ export interface Task {
 export interface LLMRequest {
 	prompt: string;
 	data: any;
-	type: 'transaction' | 'event' | 'task' | 'suggestion' | 'chat';
+	type: 'transaction' | 'event' | 'task' | 'suggestion' | 'chat' | 'note-enhancement';
 }
 
 export interface LLMResponse {
@@ -545,7 +555,7 @@ export const DEFAULT_SUGGESTION_SETTINGS: SuggestionSystemSettings = {
 	autoApproveHighConfidence: false,
 	highConfidenceThreshold: 0.85,
 	createSummaryLogs: true,
-	storageLocation: '.suggestions',
+	storageLocation: 'suggestions',
 	maxPendingSuggestions: 100,
 	batchProcessing: true,
 	notifyOnNewSuggestions: true

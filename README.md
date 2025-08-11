@@ -1,32 +1,34 @@
 # Second Brain Integration Plugin for Obsidian
 
-A comprehensive Obsidian plugin that transforms your vault into a unified "second brain" by automatically ingesting and organizing transactions, calendar events, and tasks with AI-powered parsing and graph intelligence.
+A comprehensive Obsidian plugin that transforms your vault into a unified "second brain" with **transparent note linking**, **AI-powered enhancement**, and **intelligent queue visualization**. Automatically connects your notes with clear reasoning while providing AI-driven content improvements.
 
-## Features
+## 🎯 **Current Key Features**
 
-### 🏗️ Core Features
+### 🔗 **Transparent Note Linking System**
+- **Automatic Link Discovery**: 6 rule types (time, entity, location, category, UID, account-based)
+- **Link Transparency**: Every link includes clear reasoning `*(shared: John Doe)*`
+- **Retroactive Analysis**: Add reasons to existing links with `Analyze Existing Links for Rules`
+- **Smart Deduplication**: Prevents duplicate links and infinite loops
+- **Bidirectional Linking**: Intelligent backlink creation
 
-- **Vault Initialization**: Automatically creates organized folder structure (`/notes`, `/transactions`, `/events`, `/tasks`, `/templates`)
-- **API Authentication**: Secure OAuth flows for Plaid and Google Calendar integration
-- **Data Synchronization**: Background or on-demand sync of transactions, events, and tasks
-- **ML-Powered Parsing**: Configurable LLM integration (OpenAI, Anthropic, or custom endpoints) to transform raw data into structured markdown
-- **Dataview Compatibility**: All notes use frontmatter fields readable by Dataview for powerful queries
+### 🤖 **AI-Powered Note Enhancement**
+- **Content Enhancement**: `Enhance Current Note with LLM` for AI-driven improvements
+- **Batch Processing**: Enhance folders or recent notes in bulk
+- **Context-Aware Suggestions**: AI analyzes note content for meaningful enhancements
+- **Multiple LLM Support**: OpenAI, Anthropic, or custom endpoints
+- **Smart Queue Processing**: Two-phase enhancement system
 
-### 🔄 Data Sources
+### � **Visual Queue Management**
+- **Real-Time Pipeline**: Visual processing stages (Creation → Enhancement → Linking → Review)
+- **Live Status Updates**: See exactly what's being processed when
+- **Interactive Queue View**: Monitor and manage processing pipeline
+- **Performance Tracking**: Batch processing with progress indicators
 
-- **Plaid Integration**: Automatic transaction import from connected bank accounts
-- **Google Calendar**: Sync calendar events with full OAuth support
-- **Task Management**: Integration with Todoist or Obsidian Tasks plugin
-- **JSON Import**: Manual import of structured data via Command Palette
-
-### 🧠 Intelligence Features
-
-- **Graph Suggestions**: AI-powered backlink and tag suggestions with user feedback
-- **Graph Export**: Export vault structure in JSON, CSV, or PyTorch Geometric formats
-- **Usage Analytics**: Track plugin usage and suggestion effectiveness
-- **Bulk Import**: Support for historical data import with performance tracking
-
-### 🎨 UI/UX Integration
+### 🏗️ **Core Infrastructure**
+- **Vault Initialization**: Organized folder structure and templates
+- **API Authentication**: Secure OAuth for Plaid and Google Calendar
+- **Data Synchronization**: Background sync of transactions and events
+- **Dataview Compatibility**: Frontmatter-driven note organization
 
 - **Command Palette**: All major functions accessible via commands
 - **Chat Interface**: Interactive AI assistant for vault queries and knowledge management
